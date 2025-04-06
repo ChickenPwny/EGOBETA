@@ -1,0 +1,22 @@
+﻿{% extends 'Template_base.html' %}
+{% load bootstrap5 %}
+{% load static %}
+
+{% block title %}
+            
+
+{% endblock %}
+
+
+{% block content %}
+<h2>Mantis Vulns</h2>
+
+        {% for res in data %}
+        {{res}}
+        <p>
+            <a href="/Mantis/{{ res.id}}">{{ res.id}}</a></br>
+            {{ res.name}}</br>
+            <!-- Add more fields here as needed -->
+        </p>
+        {% endfor %}
+{% endblock %}

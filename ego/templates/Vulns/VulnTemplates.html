@@ -1,0 +1,25 @@
+﻿{% extends 'Template_base.html' %}
+{% load bootstrap5 %}
+{% load static %}
+
+{% block title %}
+            VulnCard
+{% endblock %}
+
+
+{% block content %}
+    <h2>Mantis Vulns</h2>
+    {% for res in data %}
+        {{res}}
+        <p>
+            <a href="/VulnBoard/create/{{ res.id}}">{{ res.id}}</a></br>
+            {{ res.name}}</br>
+            {{ res.vulnCard_id}}</br>
+        <form method="POST" action="{% url 'VulnBoardDelete' res.id %}">
+            {% csrf_token %}
+  
+          <button type="submit">Yes, delete</button>
+        </form>
+        </p>
+    {% endfor %}
+{% endblock %}
