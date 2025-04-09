@@ -114,30 +114,34 @@ class EgoReconFunc:
                     skip = False
                     if skip == False:
                         #WHOIS = TLDENUM(FullDomainName, domainname, Customer_key=Customer_key, portscan_bool , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                        w = whois.whois(FullDomainName)
-                        WHOISKey = w.keys()
-                        if w:
-                            if 'expiration_date' in w:
-                                del w['expiration_date']
-                            if 'creation_date' in w:
-                                del w['creation_date']
-                            if 'status' in w:
-                                del w['status']
-                            if 'updated_date' in w:
-                                del w['updated_date']
-                            if type(w.get('emails')) == str:
-                                w.update({"emails": [ w.get('emails') ]})
-                            if type(w.get('dnssec')) == str:
-                                w.update({"dnssec": [ w.get('dnssec') ]})
-                            if type(w.get('address')) == list:
-                                address_string = ' '.join(w.get('address'))
-                                w.update({"address": address_string})
-                            updatewhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create"
-                            w.update({"customer_id": Customer_key.get('Customer_id')})
-                            #whois_dic = dict.fromkeys(['whois_customers'], w)
-                            recs = json.dumps(w, default=EgoReconFunc.serialize_datetime)
-                            create_whois = requests.post(updatewhoisurl, data=recs, verify=False, headers=headers)
-                            WHOIS =  whois.whois(domainname)
+                        try:
+                            w = whois.whois(FullDomainName)
+                            WHOISKey = w.keys()
+                            if w:
+                                if 'expiration_date' in w:
+                                    del w['expiration_date']
+                                if 'creation_date' in w:
+                                    del w['creation_date']
+                                if 'status' in w:
+                                    del w['status']
+                                if 'updated_date' in w:
+                                    del w['updated_date']
+                                if type(w.get('emails')) == str:
+                                    w.update({"emails": [ w.get('emails') ]})
+                                if type(w.get('dnssec')) == str:
+                                    w.update({"dnssec": [ w.get('dnssec') ]})
+                                if type(w.get('address')) == list:
+                                    address_string = ' '.join(w.get('address'))
+                                    w.update({"address": address_string})
+                                updatewhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create"
+                                w.update({"customer_id": Customer_key.get('Customer_id')})
+                                #whois_dic = dict.fromkeys(['whois_customers'], w)
+                                recs = json.dumps(w, default=EgoReconFunc.serialize_datetime)
+                                create_whois = requests.post(updatewhoisurl, data=recs, verify=False, headers=headers)
+                                WHOIS =  whois.whois(domainname)
+                        except:
+                            print('iunstall whois')
+                            
                     if domainname not in DomainNameseen0:
                         if crtshSearch_bool == False:
                             certSearch = None
@@ -210,8 +214,10 @@ class EgoReconFunc:
                                 results = dask.compute(*record_List)
                                 record_List_store.append(results)
                         if bool(scan_records_BruteForce) == False:
+                            print('scan_records_BruteForce False')
                             pass
                         else:
+                            print('Worddsresults ')
                             Worddsresults = Worddsresults[0]
                             if 'TLD' in Worddsresults.keys():
                                 record_List = []
@@ -235,7 +241,9 @@ class EgoReconFunc:
                                 record_List_store.append(results)
                             else:
                                 record_List = []
+                                print('dns scan_scope')
                                 for values in Worddsresults.get('DNS'):
+                                    print(values)
                                     word = values['Value'].lower()
                                     fqdn = f'{word}.{domainname}'
                                     alive = Ego_HostValidation.GetHostNamebyIp(fqdn)
@@ -243,7 +251,7 @@ class EgoReconFunc:
                                         pass
                                     else:
                                         if auth_token_json:
-                                        
+                                            
                                             ip = dask.delayed(ToolBox.Uploader)(fqdn, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
                                             record_List.append(ip)
                                         else:
@@ -1165,7 +1173,6 @@ class ToolBox:
         crtshSearch_bool = SET['crtshSearch_bool']
         Update_RecordsCheck = SET['Update_RecordsCheck']
         LoopCustomersBool= SET['LoopCustomersBool']
-        BruteForceBool = SET['BruteForce']
         BruteForce_WL = SET['BruteForce_WL']
         try:
             if subDomain in seen:
