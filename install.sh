@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Update packages
-sudo apt update --y
+sudo apt update -y
 
 # Install PostgreSQL
-sudo apt-get install postgresql --y
+sudo apt-get install postgresql -y
 
 # Create PostgreSQL user and database
 sudo -u postgres psql -c "CREATE USER postgres;"
@@ -18,20 +18,20 @@ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$postgres_password'
 sudo -u postgres psql -c "CREATE DATABASE test;"
 
 # Install nmap
-sudo apt-get install nmap --y
+sudo apt-get install nmap -y
 
 # Install Python3 and pip
-sudo apt install python3 python3-dev --y
-sudo apt install python3-pip --y
+sudo apt install python3 python3-dev -y
+sudo apt install python3-pip -y
 
 # Install Python requirements
-pip3 install -r ./ ego/requirements.txt
+pip3 install -r ./ego/requirements.txt
 pip3 install "censys==2.0.7; python_version > '3.8'" "censys==0.0.8; python_version <= '3.8'"
 python3 manage.py makemigrations
 python3 manage.py migrate
 
 # Update packages again
-sudo apt-get update --y
+sudo apt-get update -y
 
 # Download and install Go
 wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
@@ -56,5 +56,5 @@ sed -i "s/expected_secret_code = .*/expected_secret_code = '$new_secret_code'/" 
 
 python3 manage.py collectstatic
 
-sudo apt-get install mailutils --y
-sudo apt-get install postfix dovecot-imapd dovecot-pop3d --y
+sudo apt-get install mailutils -y
+sudo apt-get install postfix dovecot-imapd dovecot-pop3d -y
