@@ -1437,13 +1437,13 @@ class PythonMantisViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PythonMantisSerializer
     queryset = PythonMantis.objects.all()
 
-class VulnCardListViewSet(BaseView, generics.ListCreateAPIView):
-    serializer_class = VulnCardSerializer
-    queryset = VulnCard.objects.all()
+#class VulnCardListViewSet(BaseView, generics.ListCreateAPIView):
+#    serializer_class = VulnCardSerializer
+#    queryset = VulnCard.objects.all()
 
-class VulnCardViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = VulnCardSerializer
-    queryset = VulnCard.objects.all()
+#class VulnCardViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+#    serializer_class = VulnCardSerializer
+#    queryset = VulnCard.objects.all()
 
 class FoundVulnCreateViewSet(BaseView, generics.CreateAPIView):
     serializer_class = FoundVulnSerializer
@@ -1633,13 +1633,13 @@ class CustomersListViewSet(BaseView, generics.ListAPIView):
     serializer_class = limitedCustomerSerializer
     queryset = Customers.objects.all()
 
-class vulncardListCreateViewSet(BaseView, generics.ListCreateAPIView):
-    serializer_class = VulnCardSerializer
-    queryset = VulnCard.objects.all()
+#class vulncardListCreateViewSet(BaseView, generics.ListCreateAPIView):
+#    serializer_class = VulnCardSerializer
+#    queryset = VulnCard.objects.all()
     
-class vulncardRetrieveViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = VulnCardSerializer
-    queryset = VulnCard.objects.all()
+#class vulncardRetrieveViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+#    serializer_class = VulnCardSerializer
+#    queryset = VulnCard.objects.all()
 
 class CustomersViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomerRecordSerializer

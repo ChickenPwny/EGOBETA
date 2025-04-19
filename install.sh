@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir STATICFILES_DIRS
+
 # Update packages
 sudo apt update -y
 
