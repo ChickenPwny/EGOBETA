@@ -430,13 +430,14 @@ def register(request):
                         return render(request, 'auth/register.html', {'form': form})
                 else:
                     messages.error(request, 'Registration Failed: Invalid secret code.')
+                    print('failed')
                     return render(request, 'auth/register.html', {'form': form})
         else:
             messages.error(request, 'Registration Failed: Please fix form errors.')
 
     else:
         form = CustomUserCreationForm()
-
+        print('failed2')
     return render(request, 'auth/register.html', {'form': form})
 
 
