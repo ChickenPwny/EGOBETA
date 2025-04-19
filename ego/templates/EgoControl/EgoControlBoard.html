@@ -21,9 +21,6 @@
                         <th>DELETE</th>
                     </tr>
                     {% for control in controls %}
-
-
-
                     <tr>
                         <td>{{control.ScanGroupingProject}}</td>
                         <td><a href="{% url 'EgoControlBoardpk' control.id %}">{{control.ScanProjectByName}}</a></td>
@@ -31,7 +28,6 @@
                         <td>{{control.HostAddress}}</td>
                         <td>{{control.OutOfScope}}</td>
                         <td>
-
                             <form action="{% url 'EgoControlBoardDelete' control.id %}" method="GET">
                                 {% csrf_token %}
                                 <input type="hidden" name="_method" value="delete">

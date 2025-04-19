@@ -11,7 +11,20 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html-docx-js/0.3.1/html-docx.min.js"></script>
-
+    <style>
+        td {
+            width: auto;
+        }
+        textarea {
+            width: 100%;
+            height: 100%;
+            resize: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+    </style>
 {% endblock %}
 
 
@@ -379,75 +392,81 @@
                 </tbody>
             </table>
 
+    <div class="container mt-5">
+        <button id="copyTable" class="btn btn-primary mb-3">Copy Table</button>
+        <table class="table table-striped table-bordered" id="recordTable">
+            <thead>
+                <tr>
+                    <th>Ref #</th>
+                    <th>Web App(s)</th>
+                    <th>Hostname </th>
+                    <th>IP Address </th>
+                    <th>Location</th>
+                    <th>Shodan</th>
+                    <th>SSL Certificate</th>
+                    <th>Open Ports</th>
+                    <th>Services</th>
+                    <th>OS</th>
+                    <th>DNS</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in value %}
+                <tr>
+                    <td style="width: auto;">{{ forloop.counter }}</td>
+                    {% if record.RecRequestMetaData %}
+                    <td style="width: auto;">Yes</td>
+                    {% else %}
+                    <td style="width: auto;">No</td>
+                    {% endif %}
+                    <td style="width: auto;"><strong>{{ record.subDomain }}</strong></td>
+                    <td style="width: auto;"><strong>{{ record.ip }}</strong></td>
+                    <td style="width: auto;">{{ record.GEOCODES }}</td>
+                    <td style="width: auto;"><a href="https://www.shodan.io/host/{{ record.ip.0 }}">https://www.shodan.io/host/{{ record.ip.0 }}</a></td>
+                    {% if record.Certificates_record %}
+                    <td style="width: auto;">Yes</td>
+                    {% else %}
+                    <td style="width: auto;">No</td>
+                    {% endif %}
+                    <td style="width: auto;">{{ record.OpenPorts }}</td>
+                    <td style="width: auto;">{{ record.ostype }}</td>
+                    <td style="width: auto;">{{ record.product }}</td>
+<td style="width: auto;">
+{{record.DNSQuery_record.0}}
+</td>
 
-<div class="button-container">
-    <button class="btn btn-primary record-button" data-record="GEOCODES">GEO Codes</button>
-    <button class="btn btn-secondary record-button" data-record="Nmaps_record">Nmap</button>
-    <button class="btn btn-success record-button" data-record="DNSQuery_record">DNS</button>
-    <button class="btn btn-danger record-button" data-record="Certificates_record">SSLCert</button>
-    <button class="btn btn-warning record-button" data-record="RecRequestMetaData">Web</button>
-    <button class="btn btn-primary record-button" data-record="record">Record</button>
-    <button class="btn btn-primary record-button" data-record="Vulnerabilities">Vulnerabilities</button>
-</div>
-
-<table class="table table-striped table-bordered" id="topRecordsTable">
-    <thead id="topRecordsTableHead">
-        <tr>
-            {% with FLIP=value|get_first %}
-                {% for key in FLIP %}
-                    <th class="text-primary">{{ key }}</th>
+                </tr>
                 {% endfor %}
-            {% endwith %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for sub_value in value %}
-            {% for sub_keys, sub_values in sub_value.items %}
-                {% if sub_keys|in_list:"Nmaps_record,GEOCODES,Certificates_record,DNSQuery_record,DNSAuthority_record,RecRequestMetaData" %}
-                    {% if sub_values %}
-                        {% for info in sub_values %}
-                            <tr data-record="{{ sub_keys }}">
-                                {% for nes_key, nes_val in info.items %}
-                                    {% if nes_key != 'id' and nes_key != 'record_id' %}
-                                        <td class="text-truncate">{{ nes_val }}</td>
-                                    {% endif %}
-                                {% endfor %}
-                            </tr>
-                        {% endfor %}
-                    {% endif %}
-                {% endif %}
-            {% endfor %}
-        {% endfor %}
-    </tbody>
-</table>
+            </tbody>
+        </table>
+    </div>
 
-<table class="table table-striped table-bordered" id="bottomRecordsTable" style="display: none;">
-    <thead id="bottomRecordsTableHead">
-        <tr>
-            {% with FLIP=value|get_first %}
-                {% for key in FLIP %}
-                    {% if key|in_list:"id,customer_id,md5,domainname,subDomain,dateCreated,alive,ip,OpenPorts,GEOCODES,CMS,Images" %}
-                        <th class="text-primary">{{ key }}</th>
-                    {% endif %}
-                {% endfor %}
-            {% endwith %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for sub_value in value %}
-        <tr data-record="record">
-            {% for sub_keys, sub_values in sub_value.items %}
-                {% if sub_keys|in_list:"id,customer_id,md5,domainname,subDomain,dateCreated,alive,ip,OpenPorts,GEOCODES,CMS,Images" %}
-                    {% if sub_values %}
-                        <td class="text-truncate">{{ sub_values }}</td>
-                    {% endif %}
-                {% endif %}
-            {% endfor %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <script>
+        document.getElementById('copyTable').addEventListener('click', function () {
+            var table = document.getElementById('recordTable');
+            var rows = table.querySelectorAll('tr');
+            var tableContent = '';
 
+            rows.forEach(function (row) {
+                var cols = row.querySelectorAll('th, td');
+                var rowData = [];
+                cols.forEach(function (col) {
+                    rowData.push(col.innerText);
+                });
+                tableContent += rowData.join('\t') + '\n';
+            });
+
+            var textarea = document.createElement('textarea');
+            textarea.value = tableContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            alert('Table copied to clipboard!');
+        });
+    </script>
 <script>
     document.querySelectorAll('.record-button').forEach(button => {
         button.addEventListener('click', () => {

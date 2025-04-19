@@ -3,8 +3,7 @@
 {% load static %}
 
 {% block title %}
-            
-
+            VulnCard
 {% endblock %}
 
 
@@ -16,6 +15,7 @@
         <p>
             <a href="/Mantis/{{ res.id}}">{{ res.id}}</a></br>
             {{ res.name}}</br>
+            {{ res.vulnCard_id}}</br>
             <!-- Add more fields here as needed -->
         </p>
         {% endfor %}

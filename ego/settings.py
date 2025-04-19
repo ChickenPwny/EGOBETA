@@ -25,6 +25,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'GENREAATE_ME_CODE'
+SECRET_CODE = 'GENREAATE_ME_CODE'
 
 # SECURITY WARNING: don't run upcVfgxy~1E9esJMqz,U0z?with debug turned on in production!
 DEBUG = True

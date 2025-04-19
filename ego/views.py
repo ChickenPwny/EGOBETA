@@ -101,6 +101,10 @@ class UserProfilePasswordResetConfirmView(PasswordResetConfirmView):
 class UserProfilePasswordResetCompleteView(PasswordResetCompleteView):
     template_name = 'registration/password_reset_complete.html'
 
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
+@method_decorator(login_required, name='dispatch')
 class UserProfileView(View):
     def get(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -115,66 +119,87 @@ class UserProfileView(View):
                     tenant_invitations = TenantInvitation.objects.all()
                 except TenantInvitation.DoesNotExist:
                     tenant_invitations = []
+                fastpass_host = user_profile.FastPassHost
+                fastpass_port = user_profile.FastPassPort
             else:
                 form = UserProfileForm(instance=user_profile)
-                tenant_invitation_form =  TenantInvitationForm()
+                tenant_invitation_form = TenantInvitationForm()
                 admin_users = user_profile
                 tenant_invitations = []
+                fastpass_host = None
+                fastpass_port = None
             return TemplateResponse(request, 'Account/account.html', {
                 'form': form, 
                 'tenant_invitation_form': tenant_invitation_form,
                 'admin_users': admin_users,
-                'tenant_invitations': tenant_invitations
+                'tenant_invitations': tenant_invitations,
+                'fastpass_host': fastpass_host,
+                'fastpass_port': fastpass_port
             })
         else:
             return HttpResponseRedirect(reverse_lazy('user_profile'))
-        
+
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        
         user_profile = get_object_or_404(UserProfile, user=request.user)
-        tenant_invitation_form = None
         if user_profile.role == 'ADMIN':
-            tenant_invitation_form = TenantInvitationForm(request.POST)  # Assuming you have a TenantInvitationForm
-            tenant_update_form = UserProfileForm(request.POST, instance=user_profile)
-            if tenant_invitation_form.is_valid():
-                tenant_invitation = tenant_invitation_form.save(commit=False)  # Don't save the TenantInvitation instance yet
-                tenant_invitation.tenant = user_profile.tenant  # Set the tenant field to the tenant of the user who is creating the invitation
-                tenant_invitation.save()  # Now save the TenantInvitation instance
-
-                tenant = tenant_invitation.tenant  # assuming 'tenant' is a property of TenantInvitation
-
-                # Get the current site (domain)
-                current_site = get_current_site(request)
-                # Generate a token with the user's information
-                token = default_token_generator.make_token(user_profile.user)
-                uid = urlsafe_base64_encode(force_bytes(tenant_invitation.pk))
-
-                invitation_url = f"http://{current_site.domain}{reverse('invitation_view', kwargs={'uidb64': uid, 'token': token})}"
-
-                # Create the email message
-                message = render_to_string('invitation_email.html', {
-                    'user': user_profile.user,
-                    'domain': current_site.domain,
-                    'uid': uid,
-                    'token': token,
-                })
-                # Send the email
-                send_mail(
-                    'You are invited to join our tenant',
-                    message,
-                    'from@example.com',
-                    [tenant_invitation.email],
-                    fail_silently=False,
-                )
-                return HttpResponseRedirect(reverse_lazy('user_profile'))
-            elif tenant_update_form.is_valid():
-                tenant_update_form.save()
-                return HttpResponseRedirect(reverse_lazy('user_profile'))
-            else:
-                return TemplateResponse(request, 'Account/account.html', {'tenant_invitation_form': tenant_invitation_form})
+            form = AdminUserProfileForm(request.POST, instance=user_profile)
         else:
-            return HttpResponseForbidden("You are not authorized to perform this action.")
+            form = UserProfileForm(request.POST, instance=user_profile)
+        
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return HttpResponseRedirect(reverse_lazy('user_profile'))
+        else:
+            return TemplateResponse(request, 'Account/update_profile.html', {'form': form})
+
+@transaction.atomic
+def createUser(self, request, *args, **kwargs):
+        
+    user_profile = get_object_or_404(UserProfile, user=request.user)
+    tenant_invitation_form = None
+    if user_profile.role == 'ADMIN':
+        tenant_invitation_form = TenantInvitationForm(request.POST)  # Assuming you have a TenantInvitationForm
+        tenant_update_form = UserProfileForm(request.POST, instance=user_profile)
+        if tenant_invitation_form.is_valid():
+            tenant_invitation = tenant_invitation_form.save(commit=False)  # Don't save the TenantInvitation instance yet
+            tenant_invitation.tenant = user_profile.tenant  # Set the tenant field to the tenant of the user who is creating the invitation
+            tenant_invitation.save()  # Now save the TenantInvitation instance
+
+            tenant = tenant_invitation.tenant  # assuming 'tenant' is a property of TenantInvitation
+
+            # Get the current site (domain)
+            current_site = get_current_site(request)
+            # Generate a token with the user's information
+            token = default_token_generator.make_token(user_profile.user)
+            uid = urlsafe_base64_encode(force_bytes(tenant_invitation.pk))
+
+            invitation_url = f"http://{current_site.domain}{reverse('invitation_view', kwargs={'uidb64': uid, 'token': token})}"
+
+            # Create the email message
+            message = render_to_string('invitation_email.html', {
+                'user': user_profile.user,
+                'domain': current_site.domain,
+                'uid': uid,
+                'token': token,
+            })
+            # Send the email
+            send_mail(
+                'You are invited to join our tenant',
+                message,
+                'from@example.com',
+                [tenant_invitation.email],
+                fail_silently=False,
+            )
+            return HttpResponseRedirect(reverse_lazy('user_profile'))
+        elif tenant_update_form.is_valid():
+            tenant_update_form.save()
+            return HttpResponseRedirect(reverse_lazy('user_profile'))
+        else:
+            return TemplateResponse(request, 'Account/account.html', {'tenant_invitation_form': tenant_invitation_form})
+    else:
+        return HttpResponseForbidden("You are not authorized to perform this action.")
 
 
 @login_required
@@ -192,27 +217,49 @@ def InvitationDeleteView(self, request, *args, **kwargs):
             except TenantInvitation.DoesNotExist:
                 return HttpResponse(status=404)
 
+import base64
+from io import BytesIO
+
+def getQRCodeService(user_profile):
+    # Generate the QR code image
+    qr_code_image = generate_qr_code(user_profile)  # Replace with your QR code generation logic
+
+    # Convert the image to a base64 string
+    buffered = BytesIO()
+    qr_code_image.save(buffered, format="JPEG")
+    qr_code_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    return qr_code_base64
+
+from django.views import generic
+from django.http import JsonResponse
+from django.template.response import TemplateResponse
+from django.contrib.auth import login
+from .models import UserProfile
+from .services import getQRCodeService, getUserService
+
+from .services import getQRCodeService, getUserService
+from django.contrib.auth import login
 
 class Set2FAView(generic.CreateView):
     """
     Get the image of the QR Code
     """
-    def get(self, request):
-        user = request.user
+    def get(self, request, code):
+        try:
+            user_profile = UserProfile.objects.get(twofactorsetupcode=code)
+        except UserProfile.DoesNotExist:
+            return JsonResponse(
+                {
+                    "status": "fail", 
+                    "message": "No user with the corresponding code exists"
+                }, 
+                status=404
+            )
 
-        if user.is_authenticated:
-            user_profile = getUserService(request)
-            if user_profile is None:
-                # Handle the case where no UserProfile exists for the authenticated user
-                return JsonResponse(
-                    {
-                        "status": "fail", 
-                        "message": "No UserProfile exists for the authenticated user"
-                    }, 
-                    status=404
-                )
-            qr_code = getQRCodeService(user_profile)  # Pass the User object instead of the ID
-            if qr_code is None:
+        try:
+            qr_code_url = getQRCodeService(user_profile)  # Pass the UserProfile object
+            if qr_code_url is None:
                 # Handle the case where getQRCodeService returns None
                 return JsonResponse(
                     {
@@ -221,16 +268,22 @@ class Set2FAView(generic.CreateView):
                     }, 
                     status=500
                 )
-            print(user_profile.__dict__)
-            return TemplateResponse(request, 'auth/two_fa_register_page.html', {"qr_code": qr_code})
-        else:
+        except Exception as e:
+            # Handle any exceptions that occur during QR code generation
             return JsonResponse(
                 {
                     "status": "fail", 
-                    "message": "TFANo user with the corresponding username and password exists"
+                    "message": f"An error occurred: {str(e)}"
                 }, 
-                status=404
+                status=500
             )
+
+        # Log the user in to create a session
+        login(request, user_profile.user)
+
+        print(user_profile.__dict__)
+        return TemplateResponse(request, 'auth/two_fa_register_page.html', {"qr_code": qr_code_url})
+
 
 # auth_app/views.py
 class Login_View(generic.CreateView):
@@ -251,22 +304,39 @@ class Login_View(generic.CreateView):
     def get(self, request, *args, **kwargs):
         form = OTPAuthenticationForm()
         return TemplateResponse(request, 'auth/login.html', {'form': form})
+ 
     
+
 # auth_app/views.py
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import HttpResponseRedirect
+from django.contrib.auth import login
+
 class Verify2FAView(APIView):
 
     def post(self, request):
+        otp = request.POST.get('otp', None)
+        if otp is None:
+            return Response(
+                {
+                    "status": "Verification failed", 
+                    "message": "OTP code is missing"
+                }, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         user = getUserService(request)
         if user is None:
             return Response(
                 {
                     "status": "Verification failed", 
-                    "message": "No user with the corresponding username and password exists"
+                    "message": "User not found"
                 }, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        otp = request.POST.get('otp', None)
+
         valid_otp = getOTPValidityService(user, otp)
         if not valid_otp:
             return Response(
@@ -276,72 +346,99 @@ class Verify2FAView(APIView):
                 }, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+
+        
         return HttpResponseRedirect('/Customers/')
 
-#registration
+
+from django.db import transaction
+from django.contrib.auth import login
+from django.contrib.sites.shortcuts import get_current_site
+from django.core.mail import send_mail
+from django.shortcuts import render, redirect
+from django.urls import reverse
+from django.utils.http import urlsafe_base64_encode
+from django.template.loader import render_to_string
+from django.contrib import messages
+from .forms import CustomUserCreationForm
+from .models import UserProfile, Tenant, TenantInvitation
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
 
 def register(request):
-    
     if request.method == 'POST':
-        # Only users with the 'WRITE' or 'ADMIN' role can use the POST method
-
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             email = form.cleaned_data.get('email')
-            if User.objects.filter(email=email).exists():
+            if UserProfile.objects.filter(email=email).exists():
                 messages.error(request, 'Registration Failed: Email already in use.')
                 return render(request, 'auth/register.html', {'form': form})
             else:
-                token = request.GET.get('token', None)  # Get the token parameter from the URL
+                token = request.GET.get('token', None)
                 tenant_invitation = None
                 if token:
-                    # Look up the TenantInvitation with the provided token
+                    tenant_invitation = TenantInvitation.objects.filter(invite_code=token).first()
+                secret_code = form.cleaned_data.get('secret_code')
+                if secret_code == settings.SECRET_CODE or tenant_invitation:
                     try:
-                        tenant_invitation = TenantInvitation.objects.filter(token=token).first()
-                    except:
-                        tenant_invitation = None
-                else:
-                    secret_code = form.cleaned_data.get('secret_code')
-                    if secret_code == 'SECRET_CODE':  # Replace with your secret code                
                         with transaction.atomic():
-                            # Create User
-                            user = User.objects.create_user(
-                                username=form.cleaned_data.get('username'),
-                                password=form.cleaned_data.get('password1'),
-                                email=form.cleaned_data.get('email')
-                            )
+                            user = form.save(commit=False)
+                            user.set_password(form.cleaned_data.get('password1'))
+                            user.save()
 
+                            user_profile = UserProfile.objects.create(
+                                user=user,
+                                email=email,
+                                phone_number=form.cleaned_data.get('phone_number'),
+                                role='ADMIN',
+                                email_invite_code=form.cleaned_data.get('email_invite_code')
+                            )
                             if tenant_invitation:
-                                # Create Tenant from TenantInvitation
-                                tenant = Tenant.objects.create(name=tenant_invitation.tenant_name)
-                                # Delete the TenantInvitation since it has been used
+                                tenant = Tenant.objects.create(name=tenant_invitation.tenant.name)
                                 tenant_invitation.delete()
                             else:
-                                # Fallback to secret code mechanism
                                 tenant_name = form.cleaned_data.get('tenant')
+                                if not tenant_name:
+                                    tenant_name = user.username
                                 tenant = Tenant.objects.create(name=tenant_name)
 
-                                # Create UserProfile
-                                UserProfile.objects.create(
-                                    user=user,
-                                    tenant=tenant,
-                                    role='ADMIN',
-                                    email=form.cleaned_data.get('email')
-                                )        
-                        # login user before redirecting
-                        login(request, user)
-                        messages.success(request, 'Registration Succeeded')
-                        return redirect('/two-fa-register-page')  # Redirect to the 2FA page
-                    else:
-                        messages.error(request, 'Registration Failed: Invalid secret code.')
+                            user_profile.tenant = tenant
+                            user_profile.save()
+                            
+                            login(request, user)
+                            messages.success(request, 'Registration Succeeded')
+
+                            current_site = get_current_site(request)
+                            current_user_object = UserProfile.objects.get(user=user)
+                            mfa_url = f"http://{current_site.domain}{reverse('set2fa', kwargs={'code': current_user_object.twofactorsetupcode})}"
+                            message = render_to_string('auth/mfa_email.html', {
+                                'user': user.username,
+                                'mfa_url': mfa_url,
+                            })
+                            send_mail(
+                                'Multi-Factor Authentication Setup',
+                                message,
+                                settings.DEFAULT_FROM_EMAIL,
+                                [current_user_object.email],
+                                fail_silently=False,
+                            )
+                            return redirect(reverse('set2fa', kwargs={'code': current_user_object.twofactorsetupcode}))
+                    except Exception as e:
+                        print(f"Error: {str(e)}")
+                        messages.error(request, f'Registration Failed: {str(e)}')
                         return render(request, 'auth/register.html', {'form': form})
+                else:
+                    messages.error(request, 'Registration Failed: Invalid secret code.')
+                    return render(request, 'auth/register.html', {'form': form})
         else:
-                messages.error(request, 'Registration Failed: Please fix form errors.')
+            messages.error(request, 'Registration Failed: Please fix form errors.')
 
     else:
         form = CustomUserCreationForm()
 
-        return render(request, 'auth/register.html', {'form': form})
+    return render(request, 'auth/register.html', {'form': form})
+
 
 class InvitationView(View):
     def get(self, request, uidb64, token):
@@ -359,7 +456,6 @@ class InvitationView(View):
         else:
             messages.error(request, 'Invitation Failed: Invalid token.')
             return redirect('login')
-
 
 #registration two_factor 
 def two_fa_register_page(request):
@@ -382,8 +478,6 @@ def two_fa_register_page(request):
 
     return render(request, 'two_fa_register_page.html', {'qr_code_link': qr_code_link})
 
-
-
 class LoginApiView(APIView):
     def post(self, request):
         auth_header = request.META.get('HTTP_AUTHORIZATION')
@@ -402,7 +496,6 @@ class LoginApiView(APIView):
         else:
             return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class LogOutView(generic.FormView):
     def get(request):
         logout(request)
@@ -413,7 +506,6 @@ def Accountprofile(request):
     data = UserProfile.objects.get()
     return TemplateResponse(request, 'userprofile_form.html', {'content': data})
 
-
 @login_required
 def get_domain_values(domain):
     domain = domain['subDomain']
@@ -422,7 +514,6 @@ def get_domain_values(domain):
     DOMAIN= tldExtracted.domain
     SUBDOMAIN= tldExtracted.subdomain
     return {"suffix": SUFFIX, "DOMAIN": DOMAIN,"SUBDOMAIN": SUBDOMAIN}
-
 
 @login_required
 def WordClassBulkCreate(request, pk):
@@ -454,6 +545,15 @@ def WordClassBulkCreate(request, pk):
         form = UploadFileForm()
         return render(request, 'WordList/WordClassCreate.html', {'form': form})
 
+
+@method_decorator(login_required, name='dispatch')
+class WordListGroupDeleteView(View):
+    def post(self, request, *args, **kwargs):
+        wordlist_id = request.POST.get('wordlist_id')
+        wordlist_group = get_object_or_404(WordListGroup, pk=wordlist_id)
+        wordlist_group.delete()
+        messages.success(request, 'WordListGroup deleted successfully.')
+        return redirect(reverse('WordClass'))
 
 @login_required
 def WordClass(request):
@@ -559,7 +659,8 @@ def CustomersCreateurl(request, format=None):
                         ScanProjectByID=customer.id,
                         HostAddress=user_profile.FastPassHost,
                         Port=user_profile.FastPassPort,
-                        crtshSearch_bool='True',
+                        
+                        _bool='True',
                         Scan_DomainName_Scope_bool='True',
                     )
                 return HttpResponseRedirect('/Customers/Create')
@@ -800,11 +901,15 @@ def EgoControlCreate(request):
     if request.method == 'POST':
         form = create_egocontrol(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('/EgoControlBoard/create')  # replace with your success url
+            egocontrol = form.save(commit=False)
+            if not egocontrol.BruteForce_WL.exists():
+                egocontrol.BruteForce_WL.set([])  # Set to an empty list or appropriate default value
+            egocontrol.save()
+            form.save_m2m()  # Save the many-to-many relationships
+            return HttpResponseRedirect('/EgoControlBoard/create')
     else:
         form = create_egocontrol()
-    return TemplateResponse(request, 'EgoControl/EgoControlBoardCreate.html', {'form': form})  # replace 'template_name.html' with your template name
+    return render(request, 'EgoControl/EgoControlBoardCreate.html', {'form': form})
 
 @login_required
 def EgoControlBoardDelete(request, pk):
@@ -897,6 +1002,7 @@ def mantiscreatePK(request, pk):
     context ={}
     mantis = PythonMantis.objects.get(pk=pk)
     form = MantisDataCreate()
+    #cards = VulnCard.objects.get(pk=uuid.UUID(mantis.vulnCard_id))
     if request.method == 'GET':
         form = MantisDataCreate(instance=mantis)
         return TemplateResponse(request, f'Mantis/MantisPK.html', {"results": mantis, "form": form})
@@ -906,6 +1012,74 @@ def mantiscreatePK(request, pk):
             form.save()
         context['form']=form
         return HttpResponseRedirect(f'/Mantis/{pk}')
+
+## vulncards 
+@login_required
+def VulnCardCreate(request):
+    queryset = VulnCard.objects.all()
+    formCard = VulnCardForm()
+    form = PythonMantisForm()
+    last_formCard = VulnCard.objects.last()  # Get the last created formCard
+
+    if request.method == 'GET':
+        return TemplateResponse(request, "Mantis/MantisVulnCard.html", {"results": queryset, "form": form, "formCard": formCard })
+    
+    if request.method == 'POST':
+        formCard = VulnCardForm(request.POST or None)
+        if formCard.is_valid():
+            vuln_card = formCard.save()
+            formVuln = PythonMantisForm(request.POST or None, initial={'vulnCard_id': vuln_card.id, 'id': last_formCard.id if last_formCard else None})
+            if formVuln.is_valid():
+                formVuln.save()
+            return HttpResponseRedirect(reverse('VulnCardCreate') + '?step=2')
+        else:
+            formVuln = PythonMantisForm(request.POST or None)
+        return TemplateResponse(request, "Mantis/MantisVulnCard.html", {"results": queryset, "form": formVuln, "formCard": formCard })
+
+@login_required
+def VulnCardPK(request, pk):
+    queryset = VulnCard.objects.get(pk=pk)
+    form = VulnCardForm(instance=queryset)
+    if request.method == 'GET':
+        return TemplateResponse(request, "Mantis/MantisVulnCard.html", {"results": queryset, "form": form})
+    if request.method == 'POST':
+        form = VulnCardForm(request.POST  or None, instance=queryset)
+        if form.is_valid():
+            form.save()
+        return HttpResponseRedirect(f'/Mantis/MantisVulnCardPk/{pk}')
+
+@login_required
+def view_vulncardANDpythonmantis(request):
+    queryset = VulnCard.objects.all()
+    formCard = VulnCardForm()
+    form = PythonMantisForm()
+    if request.method == 'GET':
+        return TemplateResponse(request, "Mantis/MantisVulnCard.html", {"results": queryset, "form": form, "formCard": formCard })
+
+@login_required
+def create_vulncard(request):
+    if request.method == 'POST':
+        form = VulnCardForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect('vulncard_list')  # Redirect to a list or detail view
+    else:
+        form = VulnCardForm()
+    return render(request, 'create_vulncard.html', {'form': form})
+
+@login_required
+def create_pythonmantis(request):
+    if request.method == 'POST':
+        form = PythonMantisForm(request.POST, request.FILES)
+        if form.is_valid():
+            pythonmantis = form.save(commit=False)
+            vulncard_id = request.POST.get('vulnCard_id')
+            pythonmantis.vulnCard_id = get_object_or_404(VulnCard, id=vulncard_id)
+            pythonmantis.save()
+            return redirect('pythonmantis_list')  # Redirect to a list or detail view
+    else:
+        form = PythonMantisForm()
+    return render(request, 'create_pythonmantis.html', {'form': form, 'vulncards': VulnCard.objects.all()})
 
 @login_required
 def VulnsBoardChart(request):
@@ -1633,13 +1807,13 @@ class CustomersListViewSet(BaseView, generics.ListAPIView):
     serializer_class = limitedCustomerSerializer
     queryset = Customers.objects.all()
 
-#class vulncardListCreateViewSet(BaseView, generics.ListCreateAPIView):
-#    serializer_class = VulnCardSerializer
-#    queryset = VulnCard.objects.all()
+class vulncardListCreateViewSet(BaseView, generics.ListCreateAPIView):
+    serializer_class = VulnCardSerializer
+    queryset = VulnCard.objects.all()
     
-#class vulncardRetrieveViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
-#    serializer_class = VulnCardSerializer
-#    queryset = VulnCard.objects.all()
+class vulncardRetrieveViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = VulnCardSerializer
+    queryset = VulnCard.objects.all()
 
 class CustomersViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomerRecordSerializer
@@ -1750,3 +1924,14 @@ class MantisControlsViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MantisControlSerializer
     queryset = MantisControls.objects.all()
     
+class MantisControlsListViewSet(BaseView, generics.ListAPIView):
+    serializer_class = MantisControlSerializer
+    queryset = MantisControls.objects.all()
+
+class MantisControlsCreateViewSet(BaseView, generics.CreateAPIView):
+    serializer_class = MantisControlSerializer
+    queryset = MantisControls.objects.all()
+
+class MantisControlsViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = MantisControlSerializer
+    queryset = MantisControls.objects.all()

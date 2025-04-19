@@ -8,63 +8,85 @@
 
 {% block content %}
 <div class="container1">
-        
-    <form method="POST" action="{% url 'MantisCreate' %}">
-        {% csrf_token %}
-        {{form.as_p}}
-        <input type="submit" value="OK">
-    </form>
-        <div class="container-fluid p-2 bg-primary text-white text-center">
-        </div>
-        <div class="container mt-5">
+<form id="vulnCardForm" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ formCard.as_p }}
+    <button type="submit">Create VulnCard</button>
+</form>
+
+<form id="pythonMantisForm" method="post" enctype="multipart/form-data" style="display: none;">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <label for="vulnCard_id">VulnCard:</label>
+    <select name="vulnCard_id" id="vulnCard_id">
+        {% for vulncard in vulncards %}
+            <option value="{{ vulncard.id }}">{{ vulncard.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Create PythonMantis</button>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Check if the URL contains the parameter step=2
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('step') === '2') {
+        // Hide the VulnCard form and show the PythonMantis form
+        document.getElementById('vulnCardForm').style.display = 'none';
+        document.getElementById('pythonMantisForm').style.display = 'block';
+    }
+});
+</script>
 
 
-            <table>
-                <tr>
-                    <th>##Name</th>
-                    <tr><td>{{ results.name }}</td></tr>
-                </tr>
-                <tr>
-                    <th>##CVE</th>
-                    <tr><td>{{ results.template_id }}</td></tr>
-                </tr>
+<div class="container-fluid p-2 bg-primary text-white text-center">
+</div>
+<div class="container mt-5">
+    <table>
+        <tr>
+            <th>##Name</th>
+            <tr><td>{{ results.name }}</td></tr>
+        </tr>
+        <tr>
+            <th>##CVE</th>
+            <tr><td>{{ results.template_id }}</td></tr>
+        </tr>
+        <tr>
+            <th>##Severity: {{ results.severity }}  </th>
+        </tr>
+        <tr>
+            <th>##host</th>
+            <tr><td>{{ results.host }}</td></tr>
+        </tr>
+        <tr>
+            <th>##Description</th>
+            <tr><td>{{results.description}}</td></tr>
+        </tr>
+        <tr>
+            <th>##Replication</th>
+            <tr><td>{{results.matched_at}}</td></tr>
+            <tr><td>{{results.curl_command}}</td></tr>
+            <tr><td>{{results.extracted_results}}</td></tr>
+        </tr>
+        <tr>
+            <th>##Reference</th>
+        </tr>
+        <tr>
+            <td>
+                <ul>
+                {% for i in results.reference%}
+                <li>{{ i }}</li>
+                {% endfor %}  
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <th>##Template Url</th>
+            <tr><td>{{ results.template_url }}</td></tr>
+        </tr>
+    </table>
+</div>
+</div>
 
-                <tr>
-                    <th>##Severity: {{ results.severity }}  </th>
-                </tr>
-                <tr>
-                    <th>##host</th>
-                    <tr><td>{{ results.host }}</td></tr>
-                </tr>
-                <tr>
-                    <th>##Description</th>
-                    <tr><td>{{results.description}}</td></tr>
-                </tr>
-                <tr>
-                    <th>##Replication</th>
-                    <tr><td>{{results.matched_at}}</td></tr>
-                    <tr><td>{{results.curl_command}}</td></tr>
-                    
-                    <tr><td>{{results.extracted_results}}</td></tr>
-                </tr>
-                <tr>
-                    <th>##Reference</th>
-                </tr>
-                <tr>
-                    <td>
-                        <ul>
-                        {% for i in results.reference%}
-                        <li>{{ i }}</li>
-                        {% endfor %}  
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <th>##Template Url</th>
-                    <tr><td>{{ results.template_url }}</td></tr>
-                </tr>
-            </table>
-        </div>
-       </div>
 
 {% endblock %}

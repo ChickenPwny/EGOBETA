@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<div >
+<div>
   <div>
     <h2>User Profile</h2>
     <form method="POST">
@@ -15,15 +15,14 @@
       {{ form.as_p }}
       <button type="submit">Save</button>
     </form>
-<h3>User Details</h3>
-{% for user_profile in admin_users %}
-    <p>Username: {{ user_profile.user.username }}</p>
-    <p>Email: {{ user_profile.user.email }}</p>
-    <p>Role: {{ user_profile.role }}</p>
-    <p>FastPass Host: {{ user_profile.FastPassHost }}</p>
-    <p>FastPass Port: {{ user_profile.FastPassPort }}</p>
-{% endfor %}
-
+    <h3>User Details</h3>
+    {% for user_profile in admin_users %}
+        <p>Username: {{ user_profile.user.username }}</p>
+        <p>Email: {{ user_profile.user.email }}</p>
+        <p>Role: {{ user_profile.role }}</p>
+        <p>FastPass Host: {{ user_profile.fastpass_host }}</p>
+        <p>FastPass Port: {{ user_profile.fastpass_port }}</p>
+    {% endfor %}
     <!-- Add more fields as needed -->
   </div>
   <div>
@@ -36,18 +35,15 @@
   </div>
   <div>
     <h2>Group Membership</h2>
-	<ul>
-	  {% for group in tenant_invitations %}
-		<li>{{ group.email }}</li>
+    <ul>
+      {% for group in tenant_invitations %}
+        <li>{{ group.email }}</li>
         <form id="deleteForm" action="{% url 'InvitationDeleteView' group.id %}" method="post">
             {% csrf_token %}
             <input type="submit" value="Delete Invitation">
         </form>
-	  {% endfor %}
-
-	</ul>
-    </div>
+      {% endfor %}
+    </ul>
+  </div>
 </div>
-
-
 {% endblock %}

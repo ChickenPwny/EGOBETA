@@ -35,10 +35,14 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction
 
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericRelation
+
+
 class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-
     def __str__(self):
         return self.name
 
@@ -46,7 +50,9 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, blank=True)
     otp_base32 = models.CharField(max_length=200, null=True)
+    twofactorsetupcode = models.UUIDField(default=uuid.uuid4, editable=False)
     email = models.EmailField(max_length=254, unique=True)
+    phone_number = models.CharField(max_length=15, null=True, blank=True)  
     ROLE_CHOICES = [
         ('ADMIN', 'Admin'),
         ('READ', 'Read'),
@@ -55,10 +61,8 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=5, choices=ROLE_CHOICES, default='READ')
     email_invite_code = models.CharField(max_length=100, null=True, blank=True)
     FastPassHost = models.CharField(max_length=100, null=True, blank=True)
-    FastPassPort = models.CharField(max_length=100, null=True, blank=True)
-    def __str__(self):
-        return self.user.username
-
+    FastPassPort = models.CharField(max_length=100, null=True, blank=True)    
+    
 class TenantInvitation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
@@ -67,11 +71,12 @@ class TenantInvitation(models.Model):
         ('READ', 'Read'),
         ('WRITE', 'Write'),
     ]
-    role = models.CharField(max_length=5, choices=ROLE_CHOICES, default='READ')    
+    role = models.CharField(max_length=5, choices=ROLE_CHOICES, default='ADMIN')    
     invite_code = models.UUIDField(default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True)
     invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    
+    invitation_date = models.DateTimeField(auto_now_add=True, null=True, blank=True, editable=False)
+
     def __str__(self):
         return self.email
 
@@ -139,7 +144,7 @@ def user_directory_path(instance, filename):
 ##############################
 class Customers(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
+    #user = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
     groupingProject = models.CharField(max_length=100, default='Ego', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Please provide the groups name example BugCrowd, Hackerone, or WorkPlace</fieldset>') 
     nameProject = models.CharField(unique=True, max_length=100, default='Please name the project.', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Please provide a Covert Name for the project, this will help keep your project a secret from other users.</fieldset>') 
     nameCustomer = models.CharField(unique=True, max_length=100, default='Please the customers name.', help_text='<fieldset style="background-color: lightblue;display: inline-block;">The real name of the customer, this is a secret</fieldset>')
@@ -299,7 +304,31 @@ class GnawControl(BaseModel):
     claimed = models.BooleanField(default='False', help_text='<fieldset style="background-color: lightblue;display: inline-block;">The scan has been claimed by an agent.</fieldset>', blank=True)
     scan_objects = fields.ArrayField(models.CharField(max_length=256), blank=True, default=list)
     scannedHost = models.JSONField(blank=True, default=list)
-    
+
+class WordListGroup(BaseModel):
+    TYPE_CHOICES = [
+        ('DNS', 'Dns'),
+        ('TLD','Tld'),
+        ('PATH', 'Path'),
+        ('OTHER', 'Other'),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #BruteForce_WL = models.ManyToManyField(EgoControl, blank=True, related_name='BruteForce_WLs')
+    groupName = models.CharField( max_length=256 )
+    type = models.CharField(max_length=32, choices=TYPE_CHOICES)
+    description = models.TextField(blank=True, default='It may seem dumb but add some context')
+    count = models.CharField( max_length=20, blank=True )
+    def __unicode__(self):
+        return self.groupName
+
+class WordList(BaseModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    WordList = models.ForeignKey(WordListGroup, on_delete=models.CASCADE, related_name='WordList')
+    type = models.CharField(max_length=32, default="None", blank=True)
+    Value = models.CharField(unique=True, max_length=2024)
+    Occurance = models.IntegerField(default=0)
+    foundAt = fields.ArrayField(models.CharField(max_length=256), blank=True)
+
 class EgoControl(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ScanProjectByID = models.CharField(max_length = 75, blank=True, help_text='<fieldset style="background-color: lightblue;display: inline-block;">The uniquic identifier stirng assigned to id Objects.</fieldset>')
@@ -321,15 +350,11 @@ class EgoControl(BaseModel):
     Scan_DomainName_Scope_bool = models.BooleanField(default='False')
     scriptscan_bool = models.BooleanField(default='False')
     BruteForce = models.BooleanField(default='False')
-    BruteForce_WL = fields.ArrayField(models.CharField(max_length=256), blank=True, default=list)
+    BruteForce_WL = models.ManyToManyField(WordListGroup, blank=True)
     scan_records_censys = models.BooleanField(default='False')
     crtshSearch_bool = models.BooleanField(default='False')
     Update_RecordsCheck = models.BooleanField(default='False')
     LoopCustomersBool = models.BooleanField(default='False')
-    #Start = models.BooleanField(default='False')
-    #StartBy = models.DateTimeField(auto_now_add=True, blank=True)
-    #pause = models.BooleanField(default='False')
-    #pauseBy = models.DateTimeField(auto_now_add=True, blank=True)
     Completed = models.BooleanField(default='False')
     Gnaw_Completed = models.BooleanField(default='False')
     failed = models.BooleanField(default='False')
@@ -355,7 +380,7 @@ class MantisControls(BaseModel):
     Mantis_Completed = models.BooleanField(default='False')
     failed = models.BooleanField(default='False')
     scan_objects = fields.ArrayField(models.CharField(max_length=256), blank=True)
-
+    NucleiScan = models.BooleanField(default=False)
 
 ##############################
 ##### manager/api/credentials
@@ -519,22 +544,7 @@ class External_Internal_Checklist(BaseModel):
     status = models.BooleanField(default='False')
     notes = models.TextField(blank=True)
     
-class WordListGroup(BaseModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    groupName = models.CharField( max_length=256 )
-    type = models.CharField(max_length=32)
-    description = models.TextField(blank=True, default='It may seem dumb but add some context')
-    count = models.CharField( max_length=20, blank=True )
-    def __unicode__(self):
-        return self.groupName
 
-class WordList(BaseModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    WordList = models.ForeignKey(WordListGroup, on_delete=models.CASCADE, related_name='WordList')
-    type = models.CharField(max_length=32, default="None", blank=True)
-    Value = models.CharField(unique=True, max_length=2024)
-    Occurance = models.IntegerField(default=0)
-    foundAt = fields.ArrayField(models.CharField(max_length=256), blank=True)
 ##############################
 ##### vulns
 ##############################
@@ -549,8 +559,9 @@ class Nuclei(BaseModel):
     #severity = models.CharField(choices=Choices_Severity, max_length=8, default='unknown')
     vulnerable = models.URLField(max_length = 2048, blank=True)
 
-class PythonMantis(BaseModel):
+class VulnCard(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #date = models.DateTimeField(auto_now_add=True, blank=True, editable=False)    
     name = models.CharField(max_length=256, unique=True, blank=True)
     vulnClass = models.CharField(max_length=256, null=True)
     author = fields.ArrayField(models.CharField(max_length = 125, blank=True), null=True)
@@ -564,40 +575,10 @@ class PythonMantis(BaseModel):
     remediation = models.TextField(blank=True)
     references = fields.ArrayField(models.URLField(max_length = 2048), blank=True)
     pictures = models.ImageField(upload_to='ProofOfConcept', blank=True)
-    Elevate_Vuln = models.CharField(max_length=256, blank=True)
-    searchPort = ArrayField(models.CharField(max_length=5), blank=True, default=list)
-    searchHeader = ArrayField(models.CharField(max_length=512), blank=True, default=list)
-    searchBody = ArrayField(models.CharField(max_length=512), blank=True, default=list)
-    searchNmap = ArrayField(models.CharField(max_length=512), blank=True, default=list)
-    callbackServer =  models.CharField(max_length = 2048, default='http://127.0.0.1')
-    callbackServerKey = models.CharField(max_length = 2048, blank=True)
-    request_method = models.CharField(max_length=7, blank=True, null=True)
-    payloads = models.TextField(blank=True)
-    headers = models.JSONField(default=dict, blank=True)
-    postData = models.TextField(blank=True)
-    ComplexPathPython = models.TextField(blank=True)
-    ComplexAttackPython = models.FileField(upload_to=user_directory_path, blank=True)
-    path = fields.ArrayField(models.CharField(max_length = 2048), blank=True, default=list)
-    creds = fields.ArrayField(models.CharField(max_length = 256), blank=True, default=list)
-    pathDeveloper = models.TextField(blank=True)
-    rawRequest = models.TextField(blank=True)
-    SSL = models.BooleanField(default='False')
-    timeout_betweenRequest = models.CharField(max_length=10, blank=True)
-    repeatnumb = models.CharField(max_length=6, blank=True)
-    redirect = models.BooleanField(default='False')
-    matchers_status = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
-    matchers_headers = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
-    matchers_bodys = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
-    matchers_words = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
-    shodan_query = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
-    google_dork = models.TextField(blank=True, null=True)
-    tags = fields.ArrayField(models.CharField(max_length=75), blank=True, default=list)
-    tcpversioning = models.CharField(max_length = 2048, blank=True)
-
 
 class FoundVuln(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    vuln_cardId = models.ForeignKey(PythonMantis, on_delete=models.CASCADE, related_name='vuln_cardId', blank=True, null=True)
+    vuln_cardId = models.ForeignKey(VulnCard, on_delete=models.CASCADE, related_name='vuln_cardId', blank=True, null=True)
     record_id = models.ForeignKey(Record, on_delete=models.CASCADE, related_name='foundVuln_record', blank=True, null=True)
     DomainName = models.CharField(max_length=256, blank=True)
     creds = fields.ArrayField(models.CharField(max_length = 256), blank=True, null=True)
@@ -641,6 +622,41 @@ class FoundVulnDetails(BaseModel):
     curl_command = models.TextField(blank=True)
 
 
+class PythonMantis(BaseModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #date = models.DateTimeField(auto_now_add=True, blank=True, editable=False)
+    vulnCard_id= models.ForeignKey(VulnCard, on_delete=models.CASCADE, related_name='PythonMantis_record')
+    Elevate_Vuln = models.CharField(max_length=256, blank=True)
+    name = models.CharField(max_length=256, null=True)
+    searchPort = ArrayField(models.CharField(max_length=5), blank=True, default=list)
+    searchHeader = ArrayField(models.CharField(max_length=512), blank=True, default=list)
+    searchBody = ArrayField(models.CharField(max_length=512), blank=True, default=list)
+    searchNmap = ArrayField(models.CharField(max_length=512), blank=True, default=list)
+    callbackServer =  models.CharField(max_length = 2048, default='http://127.0.0.1')
+    callbackServerKey = models.CharField(max_length = 2048, blank=True)
+    request_method = models.CharField(max_length=7, blank=True, null=True)
+    payloads = models.TextField(blank=True)
+    headers = models.JSONField(default=dict, blank=True)
+    postData = models.TextField(blank=True)
+    ComplexPathPython = models.TextField(blank=True)
+    ComplexAttackPython = models.FileField(upload_to=user_directory_path, blank=True)
+    path = fields.ArrayField(models.CharField(max_length = 2048), blank=True, default=list)
+    creds = fields.ArrayField(models.CharField(max_length = 256), blank=True, default=list)
+    pathDeveloper = models.TextField(blank=True)
+    rawRequest = models.TextField(blank=True)
+    SSL = models.BooleanField(default='False')
+    timeout_betweenRequest = models.CharField(max_length=10, blank=True)
+    repeatnumb = models.CharField(max_length=6, blank=True)
+    redirect = models.BooleanField(default='False')
+    matchers_status = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
+    matchers_headers = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
+    matchers_bodys = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
+    matchers_words = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
+    shodan_query = ArrayField(models.CharField(max_length=2048), blank=True, default=list)
+    google_dork = models.TextField(blank=True, null=True)
+    tags = fields.ArrayField(models.CharField(max_length=75), blank=True, default=list)
+    tcpversioning = models.CharField(max_length = 2048, blank=True)
+    
 class Vulnerability(models.Model):
     id = models.CharField(max_length=50, primary_key=True)
     source_identifier = models.CharField(max_length=50)

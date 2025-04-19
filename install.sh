@@ -60,3 +60,16 @@ python3 manage.py collectstatic
 
 sudo apt-get install mailutils -y
 sudo apt-get install postfix dovecot-imapd dovecot-pop3d -y
+
+#!/bin/bash
+
+# Generate a random secret code
+GENERATED_SECRET_CODE=$(openssl rand -base64 32)
+
+# Path to the settings.py file
+SETTINGS_FILE="ego/settings.py"
+
+# Use sed to replace the line containing SECRET_CODE
+sed -i "s/^SECRET_CODE = '.*'/SECRET_CODE = '${GENERATED_SECRET_CODE}'/" "$SETTINGS_FILE"
+
+echo "SECRET_CODE updated successfully in $SETTINGS_FILE"
