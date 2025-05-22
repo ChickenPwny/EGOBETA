@@ -1,0 +1,19 @@
+multiprocessing-logging==0.3.1  # For multiprocessing (standard library, but logging helpers exist)
+dask==2023.10.0
+ipaddress==1.0.23  # Standard library in Python 3.3+, but available as a backport
+requests==2.31.0
+urllib3==1.26.16
+tldextract==3.4.0
+jc==1.23.3
+numpy==1.26.0
+nested-lookup==0.2.25
+beautifulsoup4==4.12.2
+pyasn==1.6.1
+whois==0.9.26
+Pillow==10.0.1
+ip2geotools==0.1.6
+selenium==4.12.0
+dnspython==2.4.2
+censys==2.0.0
+Pillow==10.0.1
+ip2geotools

@@ -27,6 +27,11 @@
                 </tr>
             </thead>
             <tbody>
+            {% if Customers %}
+					<tr>
+						<td colspan="9" class="text-center">No customers found.</td>
+					</tr>
+				
                 {% for Customer in Customers %}
                     <tr>
                         <td>{{ Customer.groupingProject }}</td>
@@ -59,6 +64,7 @@
                         </td>
                     </tr>
                 {% endfor %}
+                {% endif %}
             </tbody>
         </table>
         <div class="pagination">

@@ -113,9 +113,9 @@ EMAIL_HOST_PASSWORD = ''  # Replace with your Gmail password
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'cat',
+        'NAME': 'temple',
         'USER': 'postgres',
-        'PASSWORD': '',
+        'PASSWORD': 'postgres',
         'HOST': 'localhost',
         'PORT': '5432',
     }

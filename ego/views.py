@@ -31,7 +31,7 @@ from django.core.files.storage import FileSystemStorage
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Sum
 from django.http import HttpResponse, HttpResponseForbidden, HttpResponseServerError, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
@@ -351,7 +351,6 @@ class Verify2FAView(APIView):
         
         return HttpResponseRedirect('/Customers/')
 
-
 from django.db import transaction
 from django.contrib.auth import login
 from django.contrib.sites.shortcuts import get_current_site
@@ -381,12 +380,12 @@ def register(request):
                     tenant_invitation = TenantInvitation.objects.filter(invite_code=token).first()
                 secret_code = form.cleaned_data.get('secret_code')
                 if secret_code == settings.SECRET_CODE or tenant_invitation:
+                    user = None  # Initialize user variable
                     try:
                         with transaction.atomic():
                             user = form.save(commit=False)
                             user.set_password(form.cleaned_data.get('password1'))
                             user.save()
-
                             user_profile = UserProfile.objects.create(
                                 user=user,
                                 email=email,
@@ -402,30 +401,32 @@ def register(request):
                                 if not tenant_name:
                                     tenant_name = user.username
                                 tenant = Tenant.objects.create(name=tenant_name)
-
                             user_profile.tenant = tenant
                             user_profile.save()
-                            
-                            login(request, user)
-                            messages.success(request, 'Registration Succeeded')
 
-                            current_site = get_current_site(request)
-                            current_user_object = UserProfile.objects.get(user=user)
-                            mfa_url = f"http://{current_site.domain}{reverse('set2fa', kwargs={'code': current_user_object.twofactorsetupcode})}"
-                            message = render_to_string('auth/mfa_email.html', {
-                                'user': user.username,
-                                'mfa_url': mfa_url,
-                            })
-                            send_mail(
-                                'Multi-Factor Authentication Setup',
-                                message,
-                                settings.DEFAULT_FROM_EMAIL,
-                                [current_user_object.email],
-                                fail_silently=False,
-                            )
-                            return redirect(reverse('set2fa', kwargs={'code': current_user_object.twofactorsetupcode}))
+                        # Move login outside the transaction block
+                        login(request, user)
+
+                        messages.success(request, 'Registration Succeeded')
+                        current_site = get_current_site(request)
+                        current_user_object = UserProfile.objects.get(user=user)
+                        mfa_url = f"http://{current_site.domain}{reverse('set2fa', kwargs={'code': current_user_object.twofactorsetupcode})}"
+                        message = render_to_string('auth/mfa_email.html', {
+                            'user': user.username,
+                            'mfa_url': mfa_url,
+                        })
+                        send_mail(
+                            'Multi-Factor Authentication Setup',
+                            message,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [current_user_object.email],
+                            fail_silently=False,
+                        )
+                        return redirect(reverse('set2fa', kwargs={'code': current_user_object.twofactorsetupcode}))
                     except Exception as e:
                         print(f"Error: {str(e)}")
+                        if user:
+                            user.delete()  # Remove the newly created user record
                         messages.error(request, f'Registration Failed: {str(e)}')
                         return render(request, 'auth/register.html', {'form': form})
                 else:
@@ -439,7 +440,6 @@ def register(request):
         form = CustomUserCreationForm()
         print('failed2')
     return render(request, 'auth/register.html', {'form': form})
-
 
 class InvitationView(View):
     def get(self, request, uidb64, token):
@@ -530,12 +530,14 @@ def WordClassBulkCreate(request, pk):
 
             # Create a WordList for each line in the file
             for line in lines:
+                line_content = line.strip().decode('utf-8')  # Decode bytes to string
+                print(line_content)
                 word_list = WordList.objects.create(
-                    WordList=word_list_group,
+                    wordlists=word_list_group,  # Associate with the WordListGroup
                     type='DNS',
-                    Value=line.strip(),  # Remove trailing newline
+                    Value=line_content,  # Remove trailing newline
                     Occurance=1,
-                    foundAt=[line.strip()]  # Remove trailing newline
+                    foundAt=[line_content]  # Remove trailing newline
                 )
                 print("Created WordList:", word_list)
 
@@ -546,21 +548,30 @@ def WordClassBulkCreate(request, pk):
         form = UploadFileForm()
         return render(request, 'WordList/WordClassCreate.html', {'form': form})
 
+from django.db import transaction
 
-@method_decorator(login_required, name='dispatch')
-class WordListGroupDeleteView(View):
-    def post(self, request, *args, **kwargs):
-        wordlist_id = request.POST.get('wordlist_id')
-        wordlist_group = get_object_or_404(WordListGroup, pk=wordlist_id)
-        wordlist_group.delete()
-        messages.success(request, 'WordListGroup deleted successfully.')
-        return redirect(reverse('WordClass'))
+@login_required
+def WordListGroupDeleteView(request):
+    if request.method == 'POST':
+        WordListGroup.objects.all().delete()
+
+        return HttpResponseRedirect(f"/WordList/")
+
+    else:
+        return HttpResponse("Method Not Allowed", status=405)
+
 
 @login_required
 def WordClass(request):
-    WordList = WordListGroup.objects.all()
+    # Query all WordListGroup objects
+    wordlist_groups = WordListGroup.objects.all()
+    wordlist_groups = WordListGroup.objects.annotate(
+        count =Count('wordlists'),
+
+)
+
     form = WordListGroupFormCreate()
-    return TemplateResponse(request, "WordList/WordClass.html", {"WordList": WordList, "form": form})
+    return TemplateResponse(request, "WordList/WordClass.html", {"WordList": wordlist_groups, "form": form})
 
 @login_required
 def WordClassCreate(request):
@@ -570,22 +581,29 @@ def WordClassCreate(request):
         return HttpResponseForbidden('You do not have permission to perform this action')
     else:
         WordList = WordListGroup.objects.all()
+        
         if request.method == 'POST':
             form = WordListGroupFormData(request.POST or None)
             if form.is_valid():
-                form.save()
+                # Create the WordListGroup instance but don't save it yet
+                wordlistgroup = form.save(commit=False)
+                
+                # Set the user field to the logged-in user's UserProfile's user
+                user_profile = get_object_or_404(UserProfile, user=request.user)
+                wordlistgroup.user = user_profile.id
+                
+                # Save the WordListGroup instance
+                wordlistgroup.save()
+                
+                return HttpResponseRedirect(f"/WordList/")
+                
         return HttpResponseRedirect(f"/WordList/")
-
-# Views
-@login_required
-def home(request):
-    return render(request, "registration/success.html", {})
 
 @login_required
 def CustomerVIEW(request):
     search_query = request.GET.get('search', '')
-    customers = Customers.objects.all()  # replace `Customer` with your actual model
-    
+    customers = Customers.objects.all() 
+    customers = customers.annotate(record_count=Count('customerrecords'))
     return TemplateResponse(request, 'Customers/customers.html', {"Customers": customers})
 
 
@@ -610,6 +628,29 @@ def VulnSubmitted(request, pk):
                 form.save()
     
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+
+from django.http import JsonResponse
+from ego.models import EgoControl
+
+@login_required
+def get_scan_project_data(request):
+    scan_project_id = request.GET.get('scan_project_id')
+    scan_project_name = request.GET.get('scan_project_name')
+
+    if scan_project_id:
+        ego_control = EgoControl.objects.filter(id=scan_project_id).first()
+    elif scan_project_name:
+        ego_control = EgoControl.objects.filter(ScanProjectByName=scan_project_name).first()
+    else:
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    if ego_control:
+        return JsonResponse({
+            'ScanGroupingProject': ego_control.ScanGroupingProject,
+            'ScanProjectByName': ego_control.ScanProjectByName,
+        })
+    return JsonResponse({'error': 'No data found'}, status=404)
+
 
 # create a customer record    
 # Get country information from 2 character country code EN US FR GR
@@ -652,7 +693,16 @@ def CustomersCreateurl(request, format=None):
         else:
             form = SimpleCustomersFormCreate(request.POST)
             if form.is_valid():
-                customer = form.save()
+                # Create the customer instance but don't save it yet
+                customer = form.save(commit=False)
+                
+                # Set the tenant field on the customer instance
+                customer.tenant = user_profile.tenant
+                
+                # Save the customer instance to the database
+                customer.save()
+                
+                # If FastPass is enabled, create an EgoControl object
                 if form.cleaned_data.get('FastPass'):
                     EgoControl.objects.create(
                         ScanGroupingProject=customer.groupingProject,
@@ -660,9 +710,8 @@ def CustomersCreateurl(request, format=None):
                         ScanProjectByID=customer.id,
                         HostAddress=user_profile.FastPassHost,
                         Port=user_profile.FastPassPort,
-                        
-                        _bool='True',
                         Scan_DomainName_Scope_bool='True',
+                        crtshSearch_bool='True',
                     )
                 return HttpResponseRedirect('/Customers/Create')
     else:
@@ -683,7 +732,7 @@ def CustomerPkDelete(request, pk, format=None):
 def CustomerPk(request, pk, format=None):
     if request.method == 'GET':
         customer = get_object_or_404(Customers, pk=pk)
-        form = SimpleCustomersFormCreate(instance=customer)
+        form = SimplePKCustomersFormCreate(instance=customer)
         serializer = CustomerRecordSerializer(customer)
         data = serializer.data
 
@@ -691,12 +740,38 @@ def CustomerPk(request, pk, format=None):
         found_vuln_info_name = []
         setFoundVuln = []
         setTemplate = []
+        WebAppParm = request.GET.get('WebAppParm', None)
+        paginatorParmSize = request.GET.get('paginatorSize', None)
+        if paginatorParmSize:
+            paginatorSize = paginatorParmSize   
+        else:
+            paginatorSize = 100
+        if WebAppParm:
+            # Filter the records where 'alive' is True
+            aliving_records = [record for record in data['customerrecords'] if bool(record['RecRequestMetaData']) ==  True]
 
+            paginator = Paginator(aliving_records, paginatorSize )  # Show 20 records per page
+            page_number = request.GET.get('page', 1)
+            try:
+                page_obj = paginator.page(page_number)
+            except EmptyPage:
+                page_obj = paginator.page(paginator.num_pages)    
+            data['customerrecords'] = [record for record in page_obj.object_list]
+            return TemplateResponse(request, "Customers/customersPK.html", {
+                "Customer": data, 
+                "form": form, 
+                'page_obj': page_obj,
+                "Vulns": setFoundVuln, 
+                "Template": setTemplate, 
+                "template_info_name": template_info_name, 
+                "found_vuln_info_name": found_vuln_info_name, 
+            })            
         for y in customer.customerrecords.all():
             if y == 'Templates_record':
                 for x in y:
                     print(x.name)
                     template_info_name.append(x.name)
+
             found_vuln_info_name.append(y)
 
         # Continue with the rest of the CustomerPk logic
@@ -717,11 +792,13 @@ def CustomerPk(request, pk, format=None):
                             x.map_image = file_data
                             # Assuming `customer` is a Django model instance
                             x.map_image.save(name, file_data, save=True)
-        alive_records = [record for record in data['customerrecords'] if record['alive']]
+
 
         search_query = request.GET.get('search', None)
         if search_query:
-            alive_records = [x for x in alive_records if search_query in str(x)]
+            alive_records = [x for x in data['customerrecords'] if search_query in str(x)]
+        else:
+            alive_records = data['customerrecords']
 
         paginator = Paginator(alive_records, 100)  # Show 20 records per page
         page_number = request.GET.get('page', 1)
@@ -894,8 +971,8 @@ def GnawControlBoardsPK(request, pk):
 def EgoControlBoard(request):
     response = EgoControl.objects.all()
     customers = Customers.objects.all()
-
-    return TemplateResponse(request, 'EgoControl/EgoControlBoard.html', {"controls": response, "customers": customers})
+    form = EgoControlUpdateForm()
+    return TemplateResponse(request, 'EgoControl/EgoControlBoard.html', {"controls": response, "customers": customers, "form": form})
 
 @login_required
 def EgoControlCreate(request):
@@ -912,6 +989,29 @@ def EgoControlCreate(request):
         form = create_egocontrol()
     return render(request, 'EgoControl/EgoControlBoardCreate.html', {'form': form})
 
+from django.contrib.auth.decorators import login_required
+from django.template.response import TemplateResponse
+from django.shortcuts import redirect
+
+@login_required
+def update_egocontrol_view(request):
+    if request.method == 'POST':
+        form = EgoControlUpdateForm(request.POST)
+        if form.is_valid():
+            # Update all EgoControl instances with form data
+            for instance in EgoControl.objects.all():
+                form = EgoControlUpdateForm(request.POST, instance=instance)
+                if form.is_valid():
+                    form.save()
+
+            # Redirect to EgoControlBoard after updating
+            return redirect('EgoControlBoard')  # Ensure 'EgoControlBoard' matches the URL name in urls.py
+
+    # If GET request or invalid form, redirect to EgoControlBoard
+    return redirect('EgoControlBoard')
+
+
+
 @login_required
 def EgoControlBoardDelete(request, pk):
     Control = get_object_or_404(EgoControl, pk=pk)
@@ -922,14 +1022,14 @@ def EgoControlBoardDelete(request, pk):
 def EgoControlBoardpk(request, pk):
     results = EgoControl.objects.get(pk=pk)
     if request.method == 'POST':
-        form = create_egocontrol(request.POST, instance=results)
+        form = PKcreate_egocontrol(request.POST, instance=results)
         if form.is_valid():
             results= form.save()
             return HttpResponseRedirect(f'/EgoControlBoard/{results.pk}')
         else:
             return HttpResponse("Form is not valid", status=400)
     else:
-        form = create_egocontrol(instance=results)
+        form = PKcreate_egocontrol(instance=results)
     return TemplateResponse(request, 'EgoControl/EgoControlBoardpk.html', {"control": results, "form":form})
 
 #VULNS 
@@ -941,16 +1041,19 @@ def Mantis(request):
     if query:
         querysetTemplate = Template.objects.filter(info__name__icontains=query)
         querysetFoundVuln = FoundVuln.objects.filter(name__icontains=query)
+        querysetBucketValidation = BucketValidation.objects.filter(is_valid=True,bucket_name=query)
     else:
         querysetTemplate = Template.objects.all()
         querysetFoundVuln = FoundVuln.objects.all()
+        querysetBucketValidation = BucketValidation.objects.all()
 
     count = len(querysetFoundVuln) + len(querysetTemplate)
    
     template_info_name = set([ (obj.info['name'], obj.info['severity']) for obj in querysetTemplate])
     found_vuln_info_name = set([ (obj.name, obj.severity)  for obj in querysetFoundVuln])
     if request.method == 'GET':
-        return TemplateResponse(request, "Vulns/Mantis.html", {
+        return TemplateResponse(request, "Mantis/Mantis.html", {
+                "Buckets": querysetBucketValidation,
                                                                    "Vulns": querysetFoundVuln[::-1], 
                                                                    "Template": querysetTemplate[::-1], 
                                                                    "template_info_name": template_info_name, 
@@ -1676,27 +1779,27 @@ class TemplatesCreateViewSet(BaseView, generics.CreateAPIView):
     serializer_class = TemplatesSerializer
     queryset = Template.objects.all()
 
-class WordListGroupListViewSet(BaseView, generics.ListAPIView):
+class WordListGroupListViewSet(generics.ListAPIView):
     serializer_class = WordListGroupSerializer
     queryset = WordListGroup.objects.all()
     
-class WordListGroupCreateViewSet(BaseView, generics.CreateAPIView):
+class WordListGroupCreateViewSet(generics.CreateAPIView):
     serializer_class = WordListGroupSerializer
     queryset = WordListGroup.objects.all()
 
-class WordListGroupUpdateViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+class WordListGroupUpdateViewSet( generics.RetrieveUpdateDestroyAPIView):
     serializer_class = WordListGroupSerializer
     queryset = WordListGroup.objects.all()
 
-class WordListListViewSet(BaseView, generics.ListAPIView):
+class WordListListViewSet( generics.ListAPIView):
     serializer_class = WordListSerializer
     queryset = WordList.objects.all()
     
-class WordListCreateViewSet(BaseView, generics.CreateAPIView):
+class WordListCreateViewSet( generics.CreateAPIView):
     serializer_class = WordListSerializer
     queryset = WordList.objects.all()
 
-class WordListUpdateViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+class WordListUpdateViewSet( generics.RetrieveUpdateDestroyAPIView):
     serializer_class = WordListSerializer
     queryset = WordList.objects.all()
 
@@ -1808,13 +1911,13 @@ class CustomersListViewSet(BaseView, generics.ListAPIView):
     serializer_class = limitedCustomerSerializer
     queryset = Customers.objects.all()
 
-class vulncardListCreateViewSet(BaseView, generics.ListCreateAPIView):
-    serializer_class = VulnCardSerializer
-    queryset = VulnCard.objects.all()
+#class vulncardListCreateViewSet(BaseView, generics.ListCreateAPIView):
+#    serializer_class = VulnCardSerializer
+#    queryset = VulnCard.objects.all()
     
-class vulncardRetrieveViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = VulnCardSerializer
-    queryset = VulnCard.objects.all()
+#class vulncardRetrieveViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+#    serializer_class = VulnCardSerializer
+#    queryset = VulnCard.objects.all()
 
 class CustomersViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomerRecordSerializer
@@ -1936,3 +2039,26 @@ class MantisControlsCreateViewSet(BaseView, generics.CreateAPIView):
 class MantisControlsViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MantisControlSerializer
     queryset = MantisControls.objects.all()
+    
+
+
+class BucketValidationListViewSet(BaseView, generics.ListAPIView):
+    """
+    ViewSet for listing all BucketValidation instances.
+    """
+    serializer_class = BucketValidationSerializer
+    queryset = BucketValidation.objects.all()
+
+class BucketValidationCreateViewSet(BaseView, generics.CreateAPIView):
+    """
+    ViewSet for creating a new BucketValidation instance.
+    """
+    serializer_class = BucketValidationSerializer
+    queryset = BucketValidation.objects.all()
+
+class BucketValidationViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+    """
+    ViewSet for retrieving, updating, or deleting a BucketValidation instance.
+    """
+    serializer_class = BucketValidationSerializer
+    queryset = BucketValidation.objects.all()

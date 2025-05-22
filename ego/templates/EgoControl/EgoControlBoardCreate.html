@@ -35,4 +35,40 @@ Create Ego Controlboard
 </form>
 
 </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        function updateFields(url, data) {
+            $.ajax({
+                url: url,
+                data: data,
+                success: function (response) {
+                    if (response.ScanGroupingProject) {
+                        $('#id_ScanGroupingProject').val(response.ScanGroupingProject);
+                    }
+                    if (response.ScanProjectByName) {
+                        $('#id_ScanProjectByName').val(response.ScanProjectByName);
+                    }
+                },
+                error: function () {
+                    alert('Failed to fetch data. Please try again.');
+                }
+            });
+        }
+
+        $('#id_ScanProjectByID').change(function () {
+            const scanProjectId = $(this).val();
+            if (scanProjectId) {
+                updateFields('/get-scan-project-data/', { scan_project_id: scanProjectId });
+            }
+        });
+
+        $('#id_ScanProjectByName').change(function () {
+            const scanProjectName = $(this).val();
+            if (scanProjectName) {
+                updateFields('/get-scan-project-data/', { scan_project_name: scanProjectName });
+            }
+        });
+    });
+</script>
 {% endblock %}

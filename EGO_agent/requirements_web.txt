@@ -15,7 +15,6 @@ python-bsonjs
 pytz
 tldextract
 ip2geotools
-python3-nmap
 geolocation-python
 python-yubico
 pycountry

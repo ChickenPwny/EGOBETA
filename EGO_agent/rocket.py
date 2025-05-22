@@ -1,8 +1,4 @@
 
-import whois
-import fuzzywuzzy
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
 import requests,time,json,re,sys
 import os.path
 import random
@@ -34,7 +30,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 #####
-#loginurl = "{HostAddress}:{Port}/api/login/"
+#loginurl = "{EgoSettings.HostAddress}:{EgoSettings.Port}/api/login/"
 #headers = {"Content-type": "application/json", "Accept": "application/json"}
 #data = {"username": username, "password": password}
 #recs = json.dumps(data)
@@ -188,22 +184,35 @@ def Ego(username, password):
                     LoopCustomersBool= response['LoopCustomersBool']
                     BruteForceBool = response['BruteForce']
                     BruteForce_WL = response['BruteForce_WL']
-                    print('BruteForce_WL',BruteForce_WL[:60])
+                    print('BruteForce_WL')
                     if bool(BruteForceBool) == True:
-                        url = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/DirectoryWords/"
+                        print('BruteForceBool',BruteForce_WL)
+                        url = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/WordClass/{BruteForce_WL[0]}"
+                        print(url)
                         requ = requests.get(url, headers=auth_token_json, verify=False, timeout=60)
+                        print(requ.status_code)
                         rjson_word = requ.json()
-                        if len(rjson_word) > 0:
-                            if BruteForce_WL[0] == 'TLD':
-                                Worddsresults = [{"TLD": words['WordList']} for words in rjson_word if BruteForce_WL[0] == (words['groupName']) ]
+                        print('rjson_word', 'len', type(rjson_word))
+                        if len(rjson_word['wordlists']) > 0:
+                            print('words', rjson_word['type'])
+                            if rjson_word['type'] == 'TLD':
+                                Worddsresults = {"TLD": list()}
+                                Worddsresults['TLD'].append(rjson_word['wordlists'])  # Add wordlists to TLD_set
+                            elif rjson_word['type'] == 'DNS':
+                                Worddsresults = {"DNS": list()}
+                                Worddsresults['DNS'].append(rjson_word['wordlists'])  # Add wordlists to DNS_set
                             else:
-                                Worddsresults = [{"DNS": words['WordList']} for words in rjson_word if BruteForce_WL[0] == (words['groupName']) ]
+                                print('No wordlists found, found within groupName.')
+
+                        else:
+                            print('No wordlists found.')
                     else:
+                        print('no brute force')
                         Worddsresults = []
                     print('WorddsresultsWorddsresultsWorddsresults', Worddsresults)
                     if LoopCustomersBool == True:
                         print('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
-                        LoopCustomers= f"{HostAddress}:{Port}/api/customers/"
+                        LoopCustomers= f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/customers/"
                         headers.update(auth_token_json)
                         getRecords= requests.get(LoopCustomers, headers=headers, verify=False, timeout=60)
                         rjsons= getRecords.json()
@@ -221,7 +230,7 @@ def Ego(username, password):
                         for customerIds in shuffled_id_list:
                             escape_outmeow = []
                             for customerId in customerIds:
-                                TARGET = f"{HostAddress}:{Port}/api/customers/{customerId}"
+                                TARGET = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/customers/{customerId}"
                                 headers.update(auth_token_json)
                                 getRecords= requests.get(TARGET, headers=headers, verify=False, timeout=60)
                                 rjson= getRecords.json()
@@ -404,7 +413,7 @@ def Ego(username, password):
                                                 print(f'failed 13 no data to look at {bool_Scope}')
                                                 pass
                                     print('done recordaaaaaaaaaaaaaaaaaaaaaa ')
-                                    urlhost= f"{HostAddress}:{Port}/api/create/{customerId}"
+                                    urlhost= f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/create/{customerId}"
                                     DIC = {}
                                     datetime_object = datetime.datetime.utcnow().isoformat()[:-3]+'Z'
                                     datetime_object = dict.fromkeys(['EgoReconScan'], datetime_object)
@@ -415,7 +424,7 @@ def Ego(username, password):
                                     headers.update(auth_token_json)
                                     getRecords= requests.patch(urlhost, data=recs, headers=headers,verify=False, timeout=60)
 
-                                    urlUpdateComplete = f"{HostAddress}:{Port}/api/EgoControls/{id_EgoControl}"
+                                    urlUpdateComplete = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EgoControls/{id_EgoControl}"
                                     dataPUt = {"Completed": True}
                                     recs = json.dumps(dataPUt)
                                     headers.update(auth_token_json)
@@ -428,13 +437,13 @@ def Ego(username, password):
 
                             print('meowout')
                             escape_outmeow= dask.compute(*escape_outmeow)
-                            urlhost= f"{HostAddress}:{Port}/api/create/{customerId}"
+                            urlhost= f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/create/{customerId}"
                             datetime_object = datetime.datetime.utcnow().isoformat()[:-3]+'Z'
                             datetime_object = dict.fromkeys(['LastScanned'], datetime_object)
                             rjson = json.dumps(datetime_object)
                             headers.update(auth_token_json)
                             getRecords= requests.patch(urlhost, data=rjson, headers=headers,verify=False, timeout=60)
-                            urlUpdateComplete = f"{HostAddress}:{Port}/api/EgoControls/{id_EgoControl}"
+                            urlUpdateComplete = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EgoControls/{id_EgoControl}"
                             dataPUt = {"Completed": "true"}
                             recs = json.dumps(dataPUt)
                             headers.update(auth_token_json)
@@ -443,7 +452,7 @@ def Ego(username, password):
                             print('done record ')
                             print('done recordaaaaaaaaaaaaaaaaaaaaaa ')
                     else:
-                        TARGET = f"{HostAddress}:{Port}/api/customers/{customerId}"
+                        TARGET = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/customers/{customerId}"
                         print(TARGET)
                         headers.update(auth_token_json)
                         getRecords= requests.get(TARGET, headers=headers, verify=False, timeout=60)
@@ -485,8 +494,10 @@ def Ego(username, password):
                                     if Scan_DomainName_Scope_bool == True:
                                         print('continued')
                                         for i in rjson["domainScope"]:
+                                            print(i)
                                             if i:
                                                 domain_set= DomainNameValidation.CREATOR(i)
+                                                print('here6', domain_set['domainname'])
                                                 if domain_set == False:
                                                     pass
                                                 else:
@@ -494,6 +505,7 @@ def Ego(username, password):
                                         SET.update(SCOPED_set_domain)
                                         out=[]
                                         for i in rjson["domainScope"]:
+                                            print('i')
                                             if i:
                                                 domain_set= DomainNameValidation.CREATOR(i)
                                                 if domain_set == False:
@@ -502,22 +514,22 @@ def Ego(username, password):
                                                     if OutOfScopeString is None:
                                       
                                                         if auth_token_json:
-                                                            scan_scoped= dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults, auth_token_json=auth_token_json)
+                                                            scan_scoped = dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults, auth_token_json=auth_token_json)
                                                             out.append(scan_scoped)
 
                                                         else:
-                                                            scan_scoped= dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults)
+                                                            scan_scoped = dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults)
                                                             out.append(scan_scoped)    
                                                     elif OutOfScopeString not in domain_set['domainname']:
                                                         pass
                                                     else:
                                                 
                                                         if auth_token_json:
-                                                            scan_scoped= dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults, auth_token_json=auth_token_json)
+                                                            scan_scoped = dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults, auth_token_json=auth_token_json)
                                                             out.append(scan_scoped)
 
                                                         else:
-                                                            scan_scoped= dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults)
+                                                            scan_scoped = dask.delayed(EgoReconFunc.scan_scope)(domain_set['domainname'], Customer_key=Customer_key, SET=SET, SCOPED= SCOPED_set_domain, HostAddress=HostAddress, Port=Port, Worddsresults=Worddsresults)
                                                             out.append(scan_scoped)    
                                         escape_outmeow= dask.compute(*out)
                                         print(escape_outmeow)
@@ -629,14 +641,14 @@ def Ego(username, password):
                                     print(f'failed 13 no data to look at {bool_Scope}')
                                     pass
                             print('done recordaaaaaaaaaaaaaaaaaaaaaa ')
-                            urlhost= f"{HostAddress}:{Port}/api/create/{customerId}"
+                            urlhost= f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/create/{customerId}"
                             datetime_object = datetime.datetime.utcnow().isoformat()[:-3]+'Z'
                             datetime_object = dict.fromkeys(['LastScanned'], datetime_object)
                             recs = json.dumps(datetime_object)
                             headers.update(auth_token_json)
                             getRecords= requests.patch(urlhost, data=recs, headers=headers, verify=False, timeout=60)
 
-                            urlUpdateComplete = f"{HostAddress}:{Port}/api/EgoControls/{id_EgoControl}"
+                            urlUpdateComplete = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EgoControls/{id_EgoControl}"
                             dataPUt = {"Completed": True}
                             recs = json.dumps(dataPUt)
                             print(recs)

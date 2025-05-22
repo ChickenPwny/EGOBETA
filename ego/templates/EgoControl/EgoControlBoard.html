@@ -8,6 +8,11 @@
 {% endblock %}
 {% block content %}
 
+        <form method="post" action="{% url 'update_egocontrol' %}">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-primary">Update</button>
+        </form>
         <div class="Customer_div">
             <p> Scheduled Task</p>
             <table class="ego_controls">

@@ -8,14 +8,17 @@ from django.contrib.auth import views as auth_views
 
 app_name = 'ego'
 urlpatterns = [
+    
     path('', Login_View.as_view(), name='login'),
+    path('get-scan-project-data/', get_scan_project_data, name='get_scan_project_data'),
+    path('update-egocontrol/', update_egocontrol_view, name='update_egocontrol'),
     path('login/', Login_View.as_view(), name='login'),
     path('password_reset/', UserProfilePasswordResetView.as_view(), name='password_reset'),
     path('password_reset/done/', UserProfilePasswordResetDoneView.as_view(), name='password_reset_done'),
     path('reset/<uidb64>/<token>/', UserProfilePasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('reset/done/', UserProfilePasswordResetCompleteView.as_view(), name='password_reset_complete'),    
     path('account/', UserProfileView.as_view(), name='user_profile'),
-    path('two-fa-register-page/', Set2FAView.as_view()),
+    path('two-fa-register-page/<uuid:code>/', Set2FAView.as_view(), name='set2fa'),
     path('verify-two-factor-auth/', Verify2FAView.as_view(), name='Verify2FAView'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('invitation/<uidb64>/<token>/', InvitationView.as_view(), name='invitation_view'),
@@ -51,12 +54,19 @@ urlpatterns = [
     path('Mantis/create/', MantisCreate, name='MantisCreate'),
     path('Mantis/<pk>', mantiscreatePK, name='mantiscreatePK'),
     path('Mantis/create/delete/<pk>', MantisDeletePK, name='MantisDeletePK'),
-#Vuln cards    
+#Vuln cards     
+    path('Mantis/VulnCard/create', VulnCardCreate, name='VulnCardCreate'),
+    path('Mantis/VulnCard/<pk>', VulnCardPK, name='VulnCardPK'),
     path('WordList/', WordClass, name='WordClass'),
+    #path('WordList/Delete/', WordListGroupDeleteView, name='WordClassDelete'),
+    path('wordlistgroup/delete/', WordListGroupDeleteView, name='deletewordlistgroup'),
     path('WordList/create', WordClassCreate, name='WordClassCreate'),
     path('WordList/bulk/<pk>', WordClassBulkCreate, name='WordClassBulkCreate'),    
     path('Mantis/submited/<pk>', VulnSubmitted, name='VulnSubmitted'),
     path('api/login', LoginApiView.as_view()),
+    path('bucket-validations/', BucketValidationListViewSet.as_view(), name='bucketvalidation-list'),
+    path('bucket-validations/create/', BucketValidationCreateViewSet.as_view(), name='bucketvalidation-create'),
+    path('bucket-validations/<uuid:pk>/', BucketValidationViewSet.as_view(), name='bucketvalidation-detail'),    
     path('api/GnawControl/', GnawControlCreateViewSet.as_view()),
     path('api/GnawControl/<pk>', GnawControlViewSet.as_view()),
     path('api/EgoControls/', EgoControlListViewSet.as_view()),
@@ -103,6 +113,8 @@ urlpatterns = [
     path('api/Nmap/<pk>', NmapViewSet.as_view()),
     path('api/PythonMantis/', PythonMantisListViewSet.as_view()),
     path('api/PythonMantis/<pk>', PythonMantisViewSet.as_view()),
+    #path('api/VulnCard/', vulncardListCreateViewSet.as_view()),
+    #path('api/VulnCard/<pk>', vulncardRetrieveViewSet.as_view()),
     path('api/TotalFoundVuln/create/', TotalFoundVulnCreateViewSet.as_view()),
     path('api/TotalFoundVuln/', TotalFoundVulnListViewSet.as_view()),
     path('api/TotalFoundVuln/<pk>', TotalFoundVulnViewSet.as_view()),

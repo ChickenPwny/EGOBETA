@@ -17,6 +17,7 @@
     </form>
     <h3>User Details</h3>
     {% for user_profile in admin_users %}
+        <p>Tenant: {{ user_profile.tenant }}</p>
         <p>Username: {{ user_profile.user.username }}</p>
         <p>Email: {{ user_profile.user.email }}</p>
         <p>Role: {{ user_profile.role }}</p>

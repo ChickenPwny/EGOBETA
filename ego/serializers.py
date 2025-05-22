@@ -8,8 +8,13 @@ from collections import Counter, OrderedDict
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 
-#user creation user serializer with two factor 
 
+class BucketValidationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BucketValidation
+        fields = '__all__'
+
+#user creation user serializer with two factor 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -292,17 +297,10 @@ class nistCPEID_serializers(serializers.ModelSerializer):
 class WordListSerializer(serializers.ModelSerializer):
     class Meta:
         model = WordList
-        fields = (
-            'id',
-            'WordList',
-            'type',
-            'Value',
-            'Occurance',
-            'foundAt'
-            )
+        fields = '__all__'
 
 class WordListGroupSerializer(serializers.ModelSerializer):
-    wordlist_count = serializers.SerializerMethodField()
+    wordlists =  WordListSerializer(many=True)
 
     class Meta:
         model = WordListGroup
@@ -311,13 +309,9 @@ class WordListGroupSerializer(serializers.ModelSerializer):
             'groupName',
             'type',
             'description',
-            'count',
-            'wordlist_count',
+            'wordlists'
         )
 
-    def get_wordlist_count(self, obj):
-        return WordList.objects.filter(WordList=obj).count()
-        
 
 #########################
 ####    Control serializers
@@ -770,6 +764,7 @@ class GEOCODESerializer(serializers.ModelSerializer):
 class DirectoryListingWordListSerializer(serializers.ModelSerializer):
     #WordList = serializers.SlugRelatedField(queryset=WordList.objects.filter(), many=True, slug_field='Value')
     WordList = WordListSerializer(many=True)
+    count = serializers.SerializerMethodField()
     class Meta:
         model = WordListGroup
         fields = [
@@ -779,6 +774,10 @@ class DirectoryListingWordListSerializer(serializers.ModelSerializer):
             'count',
             'WordList'
             ]
+    def get_count(self, obj):
+        return WordList.objects.filter(WordListGroup=obj).count()
+
+
 #############################################################
 #############################################################
 class Nist_serializers(serializers.ModelSerializer):

@@ -10,9 +10,6 @@ import os
 import whois
 
 from bs4 import BeautifulSoup
-import fuzzywuzzy
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
 # customer imports
 
 from .EgoDomainName import*
@@ -32,7 +29,7 @@ from selenium.webdriver.chrome.options import Options
 
 import EgoSettings
 seen = []
-print(f'{EgoSettings.dump}', f'{EgoSettings.dump}/libs/pyasn/data/ipsn_db_file_name.dat')
+print(f'{EgoSettings.dump}', f'{EgoSettings.dump}/libs/pyasn/data/i:psn_db_file_name.dat')
 if str(os.name) == 'nt':
     asndb = pyasn.pyasn(r'.\pyasn\data\ipsn_db_file_name.dat')
 else:
@@ -72,204 +69,197 @@ class EgoReconFunc:
         LoopCustomersBool= SET['LoopCustomersBool']
         BruteForceBool = SET['BruteForce']
         BruteForce_WL = SET['BruteForce_WL']
-        try:
-            record_List_store=[]
-            if type(domain) is None:
-                pass
-            elif SET['Scan_IPV_Scope_bool'] == True:
-                ipvSomething = domain
-                domains= domain.get('Ipv')
-                record_List = []
-                for domain in domains:
-                    if Ego_IP.validIPAddress(domain) == True:
-                        a= domain
-                        if type(a) is str:
-                            if auth_token_json:
-                                ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key,SET=SET, HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                record_List.append(ipv_scan)
 
-                            else:
-                                ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET, HostAddress=HostAddress, Port=Port)
-                                record_List.append(ipv_scan)
-                        elif type(a) is dict:
-                            if auth_token_json:
-                                ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                record_List.append(ipv_scan)
-                            else:
-                                ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
-                                record_List.append(ipv_scan)
-                        else:
-                            pass
-                results = dask.compute(*record_List)
-                record_List_store.append(results)
-            elif Scan_DomainName_Scope_bool == True:
-        
-                domain_set= DomainNameValidation.CREATOR(domain)
-                
-                if domain_set == False:
-                    pass
-                else:
-                    domainname= domain_set['domainname']
-                    FullDomainName= domain_set['fulldomain']
-                    skip = False
-                    if skip == False:
-                        #WHOIS = TLDENUM(FullDomainName, domainname, Customer_key=Customer_key, portscan_bool , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                        try:
-                            w = whois.whois(FullDomainName)
-                            WHOISKey = w.keys()
-                            if w:
-                                if 'expiration_date' in w:
-                                    del w['expiration_date']
-                                if 'creation_date' in w:
-                                    del w['creation_date']
-                                if 'status' in w:
-                                    del w['status']
-                                if 'updated_date' in w:
-                                    del w['updated_date']
-                                if type(w.get('emails')) == str:
-                                    w.update({"emails": [ w.get('emails') ]})
-                                if type(w.get('dnssec')) == str:
-                                    w.update({"dnssec": [ w.get('dnssec') ]})
-                                if type(w.get('address')) == list:
-                                    address_string = ' '.join(w.get('address'))
-                                    w.update({"address": address_string})
-                                updatewhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create"
-                                w.update({"customer_id": Customer_key.get('Customer_id')})
-                                #whois_dic = dict.fromkeys(['whois_customers'], w)
-                                recs = json.dumps(w, default=EgoReconFunc.serialize_datetime)
-                                create_whois = requests.post(updatewhoisurl, data=recs, verify=False, headers=headers)
-                                WHOIS =  whois.whois(domainname)
-                        except:
-                            print('iunstall whois')
-                            
-                    if domainname not in DomainNameseen0:
-                        if crtshSearch_bool == False:
-                            certSearch = None
-                        else:
-                            Global_Nuclei_CoolDown=(1,300)
-                            #Sleep_Generator = round(random.uniform(Global_Nuclei_CoolDown[0], Global_Nuclei_CoolDown[1]), 2)
-                            #time.sleep(Sleep_Generator)
-                            certSearch= EgoDomainSearch.crtshSearch(domainname, CoolDown_Between_Queries, SCOPED=SCOPED, SET=SET)
-                            try:
-                                cs= certSearch
-                                csbool= bool(cs)
-                            except:
-                                certSearch = False
-                                cs = 'a'
-                            if certSearch == False:
-                                pass
-                            elif certSearch is not None:
+        record_List_store=[]
+        if type(domain) is None:
+            pass
+        elif SET['Scan_IPV_Scope_bool'] == True:
+            ipvSomething = domain
+            domains= domain.get('Ipv')
+            record_List = []
+            for domain in domains:
+                if Ego_IP.validIPAddress(domain) == True:
+                    a= domain
+                    if type(a) is str:
+                        if auth_token_json:
+                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key,SET=SET, HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                            record_List.append(ipv_scan)
 
-                                record_List = []
-                                in_scope= cs.get('in_scope',{})
-                                for a in in_scope:
-                                    if type(a) is str:
-                                        if auth_token_json:
-                                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                            record_List.append(ipv_scan)
-                                        else:
-                                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
-                                            record_List.append(ipv_scan)
-                                    elif type(a) is dict:
-                                        if auth_token_json:
-                                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                            record_List.append(ipv_scan)
-                                        else:
-                                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
-                                            record_List.append(ipv_scan)
-                                    else:
-                                        pass
-                                results = dask.compute(*record_List)
-                                record_List_store.append(results)
-                    
-                            elif '502 Bad Gateway' in cs:
-                                time.sleep(30)
-                                pass
-                            else:
-                                pass
-                        if scan_records_censys == False:
-                            pass
                         else:
-                            censys_Record_List= EgoDomainSearch.censysSearch(domainname, SCOPED, CoolDown, CoolDown_Between_Queries, OutOfScopeString=OutOfScopeString, auth_token_json=auth_token_json)
-                            cr= censys_Record_List
-                            crbool= bool(cr)
-                            if crbool is False:
-                                pass
-                            else:
-                                in_scope= cr.get('in_scope',{})
-                                record_List = []
-                                for a in in_scope:
-                                    if type(a) is str:
-                                        dns_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                        record_List.append(dns_scan)
-                                    elif type(a) is dict:
-                                        if auth_token_json:
-                                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                            record_List.append(ipv_scan)
-                                        else:
-                                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
-                                            record_List.append(ipv_scan)
-                                    else:
-                                        pass
-                                results = dask.compute(*record_List)
-                                record_List_store.append(results)
-                        if bool(scan_records_BruteForce) == False:
-                            print('scan_records_BruteForce False')
-                            pass
+                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET, HostAddress=HostAddress, Port=Port)
+                            record_List.append(ipv_scan)
+                    elif type(a) is dict:
+                        if auth_token_json:
+                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                            record_List.append(ipv_scan)
                         else:
-                            print('Worddsresults ')
-                            Worddsresults = Worddsresults[0]
-                            if 'TLD' in Worddsresults.keys():
-                                record_List = []
-                                prechunkWord = Worddsresults.get('TLD')
-                                chunk_size = 6
-                                Word_chunks = list(ToolBox.splited(prechunkWord, chunk_size))
-                                for values in prechunkWord:
-                                    word = values.get('Value').lower()
-                                    fqdn = f"{domain_set['DOMAIN']}{word}"
-                                    alive = Ego_HostValidation.GetHostNamebyIp(fqdn)
-                                    if alive == False:
-                                        pass
-                                    else:
-                                        if auth_token_json:
-                                            ip = dask.delayed(EgoReconFunc.TLDENUM)(fqdn,values,domain_set['DOMAIN'], SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , value=WHOIS, HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                            record_List.append(ip)
-                                        else:
-                                            ip = dask.delayed(EgoReconFunc.TLDENUM)(fqdn,values,domain_set['DOMAIN'],SCOPED=SCOPED,  Customer_key=Customer_key, SET=SET , value=WHOIS, HostAddress=HostAddress, Port=Port)
-                                            record_List.append(ip)
-                                results = dask.compute(*record_List)
-                                record_List_store.append(results)
-                            else:
-                                record_List = []
-                                print('dns scan_scope')
-                                for values in Worddsresults.get('DNS'):
-                                    print(values)
-                                    word = values['Value'].lower()
-                                    fqdn = f'{word}.{domainname}'
-                                    alive = Ego_HostValidation.GetHostNamebyIp(fqdn)
-                                    if alive == False:
-                                        pass
-                                    else:
-                                        if auth_token_json:
-                                            
-                                            ip = dask.delayed(ToolBox.Uploader)(fqdn, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
-                                            record_List.append(ip)
-                                        else:
-                                            ip = dask.delayed(ToolBox.Uploader)(fqdn, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
-                                            record_List.append(ip)
-
-                                results = dask.compute(*record_List)
-                                record_List_store.append(results)
+                            ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
+                            record_List.append(ipv_scan)
                     else:
                         pass
-
-            else:
+            results = dask.compute(*record_List)
+            record_List_store.append(results)
+        elif Scan_DomainName_Scope_bool == True:
+        
+            domain_set= DomainNameValidation.CREATOR(domain)
+                
+            if domain_set == False:
                 pass
-            results = record_List_store
-            return results
-        except Exception as E:
-            print(E)
-            print('failed here meow')
+            else:
+                domainname= domain_set['domainname']
+                FullDomainName= domain_set['fulldomain']
+                skip = False
+                if skip == False:
+                    w = whois.whois(FullDomainName)
+                    WHOISKey = w.keys()
+                    if w:
+                        if 'expiration_date' in w:
+                            del w['expiration_date']
+                        if 'creation_date' in w:
+                            del w['creation_date']
+                        if 'status' in w:
+                            del w['status']
+                        if 'updated_date' in w:
+                            del w['updated_date']
+                        if type(w.get('emails')) == str:
+                            w.update({"emails": [ w.get('emails') ]})
+                        if type(w.get('dnssec')) == str:
+                            w.update({"dnssec": [ w.get('dnssec') ]})
+                        if type(w.get('address')) == list:
+                            address_string = ' '.join(w.get('address'))
+                            w.update({"address": address_string})
+                        updatewhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create"
+                        w.update({"customer_id": Customer_key.get('Customer_id')})
+                        recs = json.dumps(w, default=EgoReconFunc.serialize_datetime)
+                        create_whois = requests.post(updatewhoisurl, data=recs, verify=False, headers=headers)
+                        WHOIS =  whois.whois(domainname)
+                if domainname not in DomainNameseen0:
+                    if crtshSearch_bool == False:
+                        certSearch = None
+                    else:
+                        Global_Nuclei_CoolDown=(1,300)
+                        #Sleep_Generator = round(random.uniform(Global_Nuclei_CoolDown[0], Global_Nuclei_CoolDown[1]), 2)
+                        #time.sleep(Sleep_Generator)
+                        certSearch= EgoDomainSearch.crtshSearch(domainname, CoolDown_Between_Queries, SCOPED=SCOPED, SET=SET)
+                        try:
+                            cs= certSearch
+                            csbool= bool(cs)
+                        except:
+                            certSearch = False
+                            cs = 'a'
+                        if certSearch == False:
+                            pass
+                        elif certSearch is not None:
+
+                            record_List = []
+                            in_scope= cs.get('in_scope',{})
+                            for a in in_scope:
+                                if type(a) is str:
+                                    if auth_token_json:
+                                        ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                                        record_List.append(ipv_scan)
+                                    else:
+                                        ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
+                                        record_List.append(ipv_scan)
+                                elif type(a) is dict:
+                                    if auth_token_json:
+                                        ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                                        record_List.append(ipv_scan)
+                                    else:
+                                        ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
+                                        record_List.append(ipv_scan)
+                                else:
+                                    pass
+                            results = dask.compute(*record_List)
+                            record_List_store.append(results)
+                    
+                        elif '502 Bad Gateway' in cs:
+                            time.sleep(30)
+                            pass
+                        else:
+                            pass
+                    if scan_records_censys == False:
+                        pass
+                    else:
+                        censys_Record_List= EgoDomainSearch.censysSearch(domainname, SCOPED, CoolDown, CoolDown_Between_Queries, OutOfScopeString=OutOfScopeString, auth_token_json=auth_token_json)
+                        cr= censys_Record_List
+                        crbool= bool(cr)
+                        if crbool is False:
+                            pass
+                        else:
+                            in_scope= cr.get('in_scope',{})
+                            record_List = []
+                            for a in in_scope:
+                                if type(a) is str:
+                                    dns_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                                    record_List.append(dns_scan)
+                                elif type(a) is dict:
+                                    if auth_token_json:
+                                        ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                                        record_List.append(ipv_scan)
+                                    else:
+                                        ipv_scan= dask.delayed(ToolBox.Uploader)(a, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
+                                        record_List.append(ipv_scan)
+                                else:
+                                    pass
+                            results = dask.compute(*record_List)
+                            record_List_store.append(results)
+                    if bool(scan_records_BruteForce) == False:
+                        print('scan_records_BruteForce False')
+                        pass
+                    else:
+                        print('Worddsresults 6')
+
+                        if 'TLD' in Worddsresults.keys():
+                            record_List = []
+                            prechunkWord = Worddsresults.get('TLD')
+                            chunk_size = 6
+                            Word_chunks = list(ToolBox.splited(prechunkWord, chunk_size))
+                            for values in prechunkWord:
+                                word = values.get('Value').lower()
+                                fqdn = f"{domain_set['DOMAIN']}{word}"
+                                alive = Ego_HostValidation.GetHostNamebyIp(fqdn)
+                                if alive == False:
+                                    pass
+                                else:
+                                    if auth_token_json:
+                                        ip = dask.delayed(EgoReconFunc.TLDENUM)(fqdn,values,domain_set['DOMAIN'], SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , value=WHOIS, HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                                        record_List.append(ip)
+                                    else:
+                                        ip = dask.delayed(EgoReconFunc.TLDENUM)(fqdn,values,domain_set['DOMAIN'],SCOPED=SCOPED,  Customer_key=Customer_key, SET=SET , value=WHOIS, HostAddress=HostAddress, Port=Port)
+                                        record_List.append(ip)
+                            results = dask.compute(*record_List)
+                            record_List_store.append(results)
+                        else:
+                            record_List = []
+                            print('dns scan_scope')
+                            wordraw = Worddsresults.get('DNS')
+                            for value in wordraw[0]:
+                                print(type(value), value.get('Value'))
+                                word = value.get('Value').lower()
+                                fqdn = f'{word}.{domainname}'
+                                alive = Ego_HostValidation.GetHostNamebyIp(fqdn)
+                                if alive == False:
+                                    pass
+                                else:
+                                    if auth_token_json:
+                                            
+                                        ip = dask.delayed(ToolBox.Uploader)(fqdn, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port, auth_token_json=auth_token_json)
+                                        record_List.append(ip)
+                                    else:
+                                        ip = dask.delayed(ToolBox.Uploader)(fqdn, SCOPED=SCOPED, Customer_key=Customer_key, SET=SET , HostAddress=HostAddress, Port=Port)
+                                        record_List.append(ip)
+
+                            results = dask.compute(*record_List)
+                            record_List_store.append(results)
+                else:
+                    pass
+
+        else:
+            pass
+        results = record_List_store
+        return results
+
             
     def TLDENUM(fqdn, domainname, SCOPED=None, Customer_key=None, SET=None , WHOIS=None, values=None, HostAddress=EgoSettings.HostAddress, Port=EgoSettings.Port, auth_token_json=None):
         headers = {"Content-type": "application/json", "Accept": "application/json"}
@@ -353,7 +343,7 @@ class EgoReconFunc:
                                             pass
                                         w.update({"customer_id": Customer_key.get('Customer_id')})
                                         recs = json.dumps(w)
-                                        createwhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create/"
+                                        createwhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create"
                                         create_whois = requests.post(createwhoisurl, data=recs, verify=False, headers=headers)
                                         results = requests.get(update_url, verify=False, headers=headers)
                                         rjson = results.json()

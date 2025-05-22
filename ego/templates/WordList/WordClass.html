@@ -32,8 +32,21 @@
             <button type="submit" class="btn btn-primary">Submit</button>
         </form>
     </div>
+    <form action="{% url 'deletewordlistgroup' %}" method="POST">
+       {% csrf_token %}
+       <button type="submit">Delete All</button>
+   </form>
     <div>
         {% for w in WordList %}
+
+        <p>
+            <a href="{url "" w.id}">{{w.id}}</a><br>
+            {{ w.groupName }}<br>
+            {{ w.description }}<br>
+            {{ w.count }}<br>
+
+            {{ w.total_occurance }}<br>
+        </p>
         <div class="container">
             <form method="post" enctype="multipart/form-data" action="{% url 'WordClassBulkCreate' w.id %}">
                 {% csrf_token %}
@@ -41,17 +54,6 @@
                 <input type="submit" value="Upload">
             </form>
         </div>
-        <p>
-            <a href="{url "" w.id}"></a><br>
-            {{ w.groupName }}<br>
-            {{ w.description }}<br>
-            {{ w.count }}<br>
-        </p>
-        <form method="post" action="{% url 'WordClassDelete' %}">
-            {% csrf_token %}
-            <input type="hidden" name="wordlist_id" value="{{ w.id }}">
-            <button type="submit" class="btn btn-danger">Delete</button>
-        </form>
         </div>
         {% endfor %}
     </div>

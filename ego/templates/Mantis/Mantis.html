@@ -1,22 +1,90 @@
-﻿{% extends 'Template_base.html' %}
+{% extends 'Template_base.html' %}
 {% load bootstrap5 %}
 {% load static %}
 
 {% block title %}
-            VulnCard
+            Mantis Controlboard
 {% endblock %}
-
 
 {% block content %}
-<h2>Mantis Vulns</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantis - Vulnerabilities</title>
+</head>
+<body>
+    <h1>Mantis - Vulnerabilities</h1>
 
-        {% for res in data %}
-        {{res}}
-        <p>
-            <a href="/Mantis/{{ res.id}}">{{ res.id}}</a></br>
-            {{ res.name}}</br>
-            {{ res.vulnCard_id}}</br>
-            <!-- Add more fields here as needed -->
-        </p>
+    <!-- Search Form -->
+    <form method="get" action="{% url 'Mantis' %}">
+        <input type="text" name="q" placeholder="Search vulnerabilities..." value="{{ request.GET.q }}">
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    <!-- Display Count -->
+    <p>Total Items Found: {{ count }}</p>
+
+    <!-- Display Templates -->
+    <h2>Templates</h2>
+    <ul>
+        {% for name, severity in template_info_name %}
+            <li>
+                <strong>Name:</strong> {{ name }} <br>
+                <strong>Severity:</strong> {{ severity }}
+            </li>
         {% endfor %}
-{% endblock %}
+    </ul>
+
+    <!-- Display Found Vulnerabilities -->
+    <h2>Found Vulnerabilities</h2>
+    <ul>
+        {% for name, severity in found_vuln_info_name %}
+            <li>
+                <strong>Name:</strong> {{ name }} <br>
+                <strong>Severity:</strong> {{ severity }}
+            </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Display Full Details -->
+<h2>Buckets</h2>
+<ul>
+    {% for bucket in Buckets %}
+        {% if bucket.is_valid %}
+            <li>
+                <strong>Bucket Name:</strong> {{ bucket.bucket_name }} <br>
+                <strong>Unauthenticated Upload:</strong> 
+                {% if bucket.unauth_upload %}
+                    <span style="color: green;">Allowed</span>
+                {% else %}
+                    <span style="color: red;">Not Allowed</span>
+                {% endif %}
+                <br>
+                <strong>Uploaded Key:</strong> {{ bucket.uploaded_key|default:"N/A" }} <br>
+                <strong>Contents Accessible:</strong> 
+                {% if bucket.contents_accessible %}
+                    <span style="color: green;">Yes</span>
+                {% else %}
+                    <span style="color: red;">No</span>
+                {% endif %}
+                <br>
+                <strong>Contents:</strong> 
+                {% if bucket.contents %}
+                    <pre>{{ bucket.contents|safe }}</pre>
+                {% else %}
+                    No contents available
+                {% endif %}
+                <br>
+                <strong>Error:</strong> {{ bucket.error|default:"No error" }}
+            </li>
+        {% endif %}
+    {% endfor %}
+</ul>
+
+</body>
+</html>
+{% endblock %}ha

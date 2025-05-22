@@ -1,0 +1,21 @@
+# Ignore .vs directory and its contents
+.vs/
+.vs/EgoBeta/
+.vs/EgoBeta/copilot-chat/
+.vs/EgoBeta/copilot-chat/9b37690b/sessions/
+.vs/EgoBeta/FileContentIndex/
+.vs/EgoBeta/FileContentIndex/*.vsidx
+.vs/EgoBeta/v17/
+.vs/EgoBeta/v17/.wsuo
+.vs/EgoBeta/v17/workspaceFileList.bin
+.vs/slnx.sqlite
+.vs/VSWorkspaceState.json
+
+# Ignore specific files
+filecontentindex
+vopilot0chat*
+
+# Other common ignores
+node_modules/
+*.log
+*.tmp

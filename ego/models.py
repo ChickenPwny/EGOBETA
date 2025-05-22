@@ -43,8 +43,7 @@ from django.contrib.contenttypes.fields import GenericRelation
 class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    def __str__(self):
-        return self.name
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -74,7 +73,7 @@ class TenantInvitation(models.Model):
     role = models.CharField(max_length=5, choices=ROLE_CHOICES, default='ADMIN')    
     invite_code = models.UUIDField(default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True)
-    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    invited_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True)
     invitation_date = models.DateTimeField(auto_now_add=True, null=True, blank=True, editable=False)
 
     def __str__(self):
@@ -142,9 +141,10 @@ def user_directory_path(instance, filename):
 ##############################
 ######## customers
 ##############################
+
 class Customers(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    #user = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="customers")
     groupingProject = models.CharField(max_length=100, default='Ego', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Please provide the groups name example BugCrowd, Hackerone, or WorkPlace</fieldset>') 
     nameProject = models.CharField(unique=True, max_length=100, default='Please name the project.', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Please provide a Covert Name for the project, this will help keep your project a secret from other users.</fieldset>') 
     nameCustomer = models.CharField(unique=True, max_length=100, default='Please the customers name.', help_text='<fieldset style="background-color: lightblue;display: inline-block;">The real name of the customer, this is a secret</fieldset>')
@@ -207,12 +207,14 @@ class GEOCODES(BaseModel):
 # NMap NIST 
 ##############################
 class CPEID(BaseModel):
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     cpeId = models.CharField(max_length=175, primary_key=True)
     CPE = models.CharField(max_length=100)
     service = models.CharField(max_length=75)
     version = models.CharField(max_length=128)
 
 class csv_version(BaseModel):
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     vectorString = models.CharField(primary_key=True, max_length=50)
     version = models.CharField(max_length=7)
     accessVector = models.CharField(max_length=50)
@@ -227,6 +229,7 @@ class csv_version(BaseModel):
 class nist_description(BaseModel):
     nist_record_id = models.ForeignKey(Record, on_delete=models.CASCADE, related_name='Nist_records', blank=True, null=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     CPEServiceID = models.ForeignKey(CPEID, on_delete=models.CASCADE, related_name='CPEService')
     csv_version_id = models.ForeignKey(csv_version, on_delete=models.CASCADE, related_name='CsvVersion')
     CPE = models.CharField(max_length=100)
@@ -237,8 +240,10 @@ class nist_description(BaseModel):
 class ThreatModeling(BaseModel): 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE, related_name='customer_threat_modeling')
-
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
+    
 class TldIndex(BaseModel):
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     tld = models.CharField(unique=True, max_length=256)
     count = models.IntegerField(blank=True)
 
@@ -313,24 +318,25 @@ class WordListGroup(BaseModel):
         ('OTHER', 'Other'),
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     #BruteForce_WL = models.ManyToManyField(EgoControl, blank=True, related_name='BruteForce_WLs')
     groupName = models.CharField( max_length=256 )
     type = models.CharField(max_length=32, choices=TYPE_CHOICES)
     description = models.TextField(blank=True, default='It may seem dumb but add some context')
-    count = models.CharField( max_length=20, blank=True )
     def __unicode__(self):
         return self.groupName
 
 class WordList(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    WordList = models.ForeignKey(WordListGroup, on_delete=models.CASCADE, related_name='WordList')
+    wordlists = models.ForeignKey(WordListGroup, on_delete=models.CASCADE, related_name='wordlists')
     type = models.CharField(max_length=32, default="None", blank=True)
-    Value = models.CharField(unique=True, max_length=2024)
+    Value = models.CharField(max_length=2024)
     Occurance = models.IntegerField(default=0)
     foundAt = fields.ArrayField(models.CharField(max_length=256), blank=True)
 
 class EgoControl(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     ScanProjectByID = models.CharField(max_length = 75, blank=True, help_text='<fieldset style="background-color: lightblue;display: inline-block;">The uniquic identifier stirng assigned to id Objects.</fieldset>')
     internal_scanner = models.BooleanField(default='False')
     ScanGroupingProject = models.CharField(max_length = 75, blank=True, help_text='<fieldset style="background-color: lightblue;display: inline-block;">Example BugCrowd, HackerOne, or work. </fieldset>')
@@ -362,6 +368,7 @@ class EgoControl(BaseModel):
 
 class MantisControls(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     Ipv_Scan = models.BooleanField(default='False')
     LoopCustomersBool = models.BooleanField(default='False')
     OutOfScope = fields.ArrayField(models.CharField(max_length=256), blank=True, default=list)
@@ -387,6 +394,7 @@ class MantisControls(BaseModel):
 ##############################
 class FindingMatrix(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     found = models.CharField(max_length=500, blank=True)
     created=models.DateTimeField(auto_now_add=True, blank=True)
     updated=models.DateTimeField(auto_now_add=True, blank=True)
@@ -407,6 +415,7 @@ class FindingMatrix(BaseModel):
 
 class apiproviders(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(choices=Choices_APIProviders, max_length=100, default='unknown', unique=True)
 
 class api(BaseModel):
@@ -428,7 +437,6 @@ class Credential(BaseModel):
     domainname = models.URLField(max_length = 2048)
     username = models.CharField(max_length=256)
     password = models.CharField(max_length=256)
-
 
 ##############################
 ##### data systems
@@ -537,6 +545,7 @@ class Template(BaseModel):
 
 class External_Internal_Checklist(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     Grouping = models.CharField(max_length=100, default='Ego') 
     tool = models.DateField(auto_now_add=True)
     tester = models.CharField(max_length=100, default='Ego') 
@@ -561,6 +570,7 @@ class Nuclei(BaseModel):
 
 class VulnCard(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     #date = models.DateTimeField(auto_now_add=True, blank=True, editable=False)    
     name = models.CharField(max_length=256, unique=True, blank=True)
     vulnClass = models.CharField(max_length=256, null=True)
@@ -624,6 +634,7 @@ class FoundVulnDetails(BaseModel):
 
 class PythonMantis(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     #date = models.DateTimeField(auto_now_add=True, blank=True, editable=False)
     vulnCard_id= models.ForeignKey(VulnCard, on_delete=models.CASCADE, related_name='PythonMantis_record')
     Elevate_Vuln = models.CharField(max_length=256, blank=True)
@@ -735,3 +746,18 @@ class LLMNR(models.Model):
     Requester_IP = models.CharField(max_length=255)
     Requester_MAC = models.CharField(max_length=255)
     Poisoned_IP = models.CharField(max_length=255)
+    
+class BucketValidation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)    
+    record = models.ForeignKey(Record, on_delete=models.CASCADE, related_name="bucket_validations")  
+    dateCreated = models.DateTimeField(auto_now_add=True, blank=True, editable=False)
+    bucket_name = models.CharField(max_length=255) 
+    is_valid = models.BooleanField(default=False)  
+    unauth_upload = models.BooleanField(default=False)  
+    uploaded_key = models.CharField(max_length=255, null=True, blank=True) 
+    contents_accessible = models.BooleanField(default=False)  
+    contents = models.JSONField(default=list) 
+    error = models.TextField(null=True, blank=True)  
+
+    def __str__(self):
+        return self.bucket_name

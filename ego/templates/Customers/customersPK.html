@@ -422,7 +422,7 @@
                     {% endif %}
                     <td style="width: auto;"><strong>{{ record.subDomain }}</strong></td>
                     <td style="width: auto;"><strong>{{ record.ip }}</strong></td>
-                    <td style="width: auto;">{{ record.GEOCODES }}</td>
+                    <td style="width: auto;"><strong><a href="https://{{ record.subDomain }}">https://{{ record.subDomain }}</a></strong></td>
                     <td style="width: auto;"><a href="https://www.shodan.io/host/{{ record.ip.0 }}">https://www.shodan.io/host/{{ record.ip.0 }}</a></td>
                     {% if record.Certificates_record %}
                     <td style="width: auto;">Yes</td>
@@ -432,6 +432,7 @@
                     <td style="width: auto;">{{ record.OpenPorts }}</td>
                     <td style="width: auto;">{{ record.ostype }}</td>
                     <td style="width: auto;">{{ record.product }}</td>
+                    <td style="width: auto;">{{ record.GEOCODES }}</td>
 <td style="width: auto;">
 {{record.DNSQuery_record.0}}
 </td>

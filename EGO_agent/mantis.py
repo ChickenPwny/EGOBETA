@@ -25,8 +25,7 @@ from libs.EgoDomainSearch import *
 from libs.EgoNmapModule import *
 from libs.EgoBox import *
 from django.core.exceptions import ValidationError
-
-
+from aws_bucket_validation import validate_bucket  
 
 from ast import literal_eval
 def random_string(length=10):
@@ -848,7 +847,7 @@ def record_data(records_data, auth_token_json):
         Mantis_Completed = record_data.get('Mantis_Completed')
         failed = record_data.get('failed')
         scan_objects = record_data.get('scan_objects')
-
+        aws_bool = record_data.get('aws_bool')  # New field for AWS check
         
 
         url = f"{HostAddress}:{Port}/api/PythonMantis/"
@@ -874,6 +873,20 @@ def record_data(records_data, auth_token_json):
 
         vuln_set = dict.fromkeys(['vulnCard'], rjson)
         VulnData.update(vuln_set)
+        
+        # Perform AWS check if aws_bool is True
+        if aws_bool:
+            print(f"Performing AWS check for record ID: {id}")
+            try:
+
+                bucket_validation_result = validate_bucket(record_data)
+                print(f"AWS Bucket Validation Result for record ID {id}: {bucket_validation_result}")
+            except ImportError as e:
+                print(f"Error importing AWS validation script: {e}")
+            except Exception as e:
+                print(f"Error during AWS bucket validation for record ID {id}: {e}")
+
+
         if Elevate_Vuln:
             urlKnownVulns = f'{HostAddress}:{Port}/api/FoundVuln/'
             if auth_token_json:
@@ -1141,6 +1154,7 @@ if __name__ == "__main__":
         if auth_token_json:
             print(auth_token_json)
             getRecords = requests.get(VulnUrl, headers=auth_token_json, verify=False)
+            resp=getRecords.json()
             print(VulnUrl)
             print(getRecords.status_code)
             if isinstance(resp, list):
