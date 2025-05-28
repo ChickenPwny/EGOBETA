@@ -969,10 +969,40 @@ def GnawControlBoardsPK(request, pk):
 ## EGO
 @login_required
 def EgoControlBoard(request):
+    if request.method == 'POST':
+        form = EgoControlUpdateForm(request.POST)
+        if form.is_valid():
+            # Get the selected EgoControl IDs from the `targets` field
+            selected_targets = form.cleaned_data.get('targets', [])
+            
+            # Update only the selected EgoControl instances
+            for target_id in selected_targets:
+                instance = EgoControl.objects.get(id=target_id)
+                # Create a form instance for the specific EgoControl object
+                instance_form = EgoControlUpdateForm(request.POST, instance=instance)
+                if instance_form.is_valid():
+                    instance_form.save()
+
+            # Redirect after successful update
+            return redirect('EgoControlBoard')
+
+    # For GET requests, render the form and data
     response = EgoControl.objects.all()
     customers = Customers.objects.all()
     form = EgoControlUpdateForm()
     return TemplateResponse(request, 'EgoControl/EgoControlBoard.html', {"controls": response, "customers": customers, "form": form})
+
+@login_required
+def update_egocontrol(request, pk):
+    egocontrol = get_object_or_404(EgoControl, pk=pk)
+    if request.method == 'POST':
+        form = EgoControlUpdateForm(request.POST, instance=egocontrol)
+        if form.is_valid():
+            form.save()  # Save the updated values, including the checkbox state
+            return redirect('egocontrol_list')  # Redirect to a list or detail view
+    else:
+        form = EgoControlUpdateForm(instance=egocontrol)
+    return render(request, 'ego/update_egocontrol.html', {'form': form})
 
 @login_required
 def EgoControlCreate(request):
@@ -996,20 +1026,28 @@ from django.shortcuts import redirect
 @login_required
 def update_egocontrol_view(request):
     if request.method == 'POST':
-        form = EgoControlUpdateForm(request.POST)
-        if form.is_valid():
-            # Update all EgoControl instances with form data
-            for instance in EgoControl.objects.all():
-                form = EgoControlUpdateForm(request.POST, instance=instance)
-                if form.is_valid():
-                    form.save()
+        # Get the selected targets from the POST data
+        selected_targets = request.POST.getlist('targets')  # List of selected IDs
+        host_address = request.POST.get('HostAddress')  # Get HostAddress from the form
+        port = request.POST.get('Port')  # Get Port from the form
 
-            # Redirect to EgoControlBoard after updating
-            return redirect('EgoControlBoard')  # Ensure 'EgoControlBoard' matches the URL name in urls.py
+        # Update only the selected EgoControl instances
+        for target_id in selected_targets:
+            try:
+                instance = EgoControl.objects.get(id=target_id)
+                instance.HostAddress = host_address
+                instance.Port = port
+                instance.save()
+            except EgoControl.DoesNotExist:
+                # Handle case where the instance does not exist
+                pass
 
-    # If GET request or invalid form, redirect to EgoControlBoard
-    return redirect('EgoControlBoard')
+        # Redirect to EgoControlBoard after updating
+        return redirect('EgoControlBoard')  # Ensure 'EgoControlBoard' matches the URL name in urls.py
 
+    # If GET request, render the EgoControlBoard template
+    controls = EgoControl.objects.all()  # Fetch all EgoControl objects for the table
+    return render(request, 'ego/EgoControlBoard.html', {'controls': controls})
 
 
 @login_required

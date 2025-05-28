@@ -154,10 +154,12 @@ def Ego(username, password):
             print(id_EgoControl)
             try:
                 COMPLETED = bool(response['Completed'])
+                CLAIMED = bool(response['claimed'])
                 print(COMPLETED)
                 response_keys = response.keys()
-                if COMPLETED == True:
+                if COMPLETED == True or CLAIMED == True:
                     print('COMPLETED')
+                    print('claimed')
                     pass
                 else:
                     SET = response
@@ -235,6 +237,12 @@ def Ego(username, password):
                                 getRecords= requests.get(TARGET, headers=headers, verify=False, timeout=60)
                                 rjson= getRecords.json()
                                 FoundTLD = rjson.get('FoundTLD')
+                                urlUpdateComplete = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EgoControls/{id_EgoControl}"
+                                dataPUt = {"claimed": "true"}
+                                recs = json.dumps(dataPUt)
+                                headers.update(auth_token_json)
+                                request = requests.patch(urlUpdateComplete, data=recs, headers=headers,verify=False, timeout=60)
+                                                               
                                 try:
                                     Worddsresults[0].update({"KnownTLD": FoundTLD})
                                 except Exception as E:
@@ -458,6 +466,12 @@ def Ego(username, password):
                         getRecords= requests.get(TARGET, headers=headers, verify=False, timeout=60)
                         rjson= getRecords.json()
                         FoundTLD = rjson.get('FoundTLD')
+                        urlUpdateComplete = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EgoControls/{id_EgoControl}"
+                        dataPUt = {"claimed": "true"}
+                        print(dataPUt)
+                        recs = json.dumps(dataPUt)
+                        headers.update(auth_token_json)
+                        request = requests.patch(urlUpdateComplete, data=recs, headers=headers,verify=False, timeout=60)                        
                         try:
                             Worddsresults[0].update({"KnownTLD": FoundTLD})
                         except Exception as E:

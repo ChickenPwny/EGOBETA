@@ -168,6 +168,7 @@ class Customers(models.Model):
     FoundTLD = fields.ArrayField(models.CharField(max_length=256), blank=True, default=list)
     FoundASN = fields.ArrayField(fields.ArrayField(models.CharField(max_length=256)), blank=True, default=list)
     skipScan = models.BooleanField(default='False', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Default is false, this will tell the engine\'s to skip this target if an <b>All Customer scan</b> is ran.</fieldset>')
+   
     def __unicode__(self):
         return self.nameProject
 
@@ -192,6 +193,8 @@ class Record(BaseModel):
     CMS = models.CharField(max_length=256, blank=True)
     ASN = ArrayField(ArrayField(models.CharField(max_length=2048), blank=True), default=list)
     Images= models.ImageField(upload_to='RecordPictures', blank=True)
+    aws_scan = models.BooleanField(default='False')
+    aws_scan_date = models.DateField(blank=True, null=True) 
 
 class GEOCODES(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -362,7 +365,7 @@ class EgoControl(BaseModel):
     Update_RecordsCheck = models.BooleanField(default='False')
     LoopCustomersBool = models.BooleanField(default='False')
     Completed = models.BooleanField(default='False')
-    Gnaw_Completed = models.BooleanField(default='False')
+    claimed = models.BooleanField(default='False')
     failed = models.BooleanField(default='False')
     scan_objects = fields.ArrayField(models.CharField(max_length=256), blank=True, default=list)
 
@@ -749,7 +752,7 @@ class LLMNR(models.Model):
     
 class BucketValidation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)    
-    record = models.ForeignKey(Record, on_delete=models.CASCADE, related_name="bucket_validations")  
+    record = models.ForeignKey(Record, on_delete=models.CASCADE, related_name="BucketValidation")  
     dateCreated = models.DateTimeField(auto_now_add=True, blank=True, editable=False)
     bucket_name = models.CharField(max_length=255) 
     is_valid = models.BooleanField(default=False)  

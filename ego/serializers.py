@@ -351,7 +351,7 @@ class EgoControlSerializer(serializers.ModelSerializer):
             'crtshSearch_bool',
             'LoopCustomersBool',
             'Completed',
-            'Gnaw_Completed',
+            'claimed',
             'failed',
             )
 

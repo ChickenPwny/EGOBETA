@@ -22,6 +22,7 @@
                     <th><a href="?sort=lastScan">Last Scanned</a></th>
                     <th><a href="?sort=record_count">Number of Records</a></th>
                     <th>Link</th>
+                    <th>Complete</th>
                     <th><a href="?sort=skipScan">Skip Scan</a></th>
                     <th>Delete</th>
                 </tr>
@@ -43,6 +44,7 @@
                         <td>
                             <a href="/Customers/{{ Customer.id }}/" class="btn btn-link">Project here</a>
                         </td>
+                        <td>{{ Customer.Completed }}</td>
                         <td>
                             <form method="put">
                                 {% csrf_token %}

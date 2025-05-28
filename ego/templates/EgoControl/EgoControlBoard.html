@@ -2,82 +2,88 @@
 {% load bootstrap5 %}
 {% load static %}
 
-
 {% block title %}
-            <h1>Ego Recon ControlBoard</h1>
+<h1>Ego Recon ControlBoard</h1>
 {% endblock %}
+
 {% block content %}
 
-        <form method="post" action="{% url 'update_egocontrol' %}">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit" class="btn btn-primary">Update</button>
-        </form>
-        <div class="Customer_div">
-            <p> Scheduled Task</p>
-            <table class="ego_controls">
-                <tbody>
-                    <tr>
-                        <th>Group Name</th>
-                        <th>Project Name</th>
-                        <th>Port</th>
-                        <th>Host Address</th>
-                        <th>Out of Scope</th>
-                        <th>DELETE</th>
-                    </tr>
-                    {% for control in controls %}
-                    <tr>
-                        <td>{{control.ScanGroupingProject}}</td>
-                        <td><a href="{% url 'EgoControlBoardpk' control.id %}">{{control.ScanProjectByName}}</a></td>
-                        <td>{{control.Port}}</td>
-                        <td>{{control.HostAddress}}</td>
-                        <td>{{control.OutOfScope}}</td>
-                        <td>
-                            <form action="{% url 'EgoControlBoardDelete' control.id %}" method="GET">
-                                {% csrf_token %}
-                                <input type="hidden" name="_method" value="delete">
-                                <input type="submit" value="Delete">
-                            </form>
+<div class="ego_form">
+<form method="post">
+    {% csrf_token %}
+    <label class="form-label">Select EgoControl IDs to update:</label>
+<table class="ego_controls">
+    <thead>
+        <tr>
+            <th>Select</th>
+            <th>Group Name</th>
+            <th>Project Name</th>
+            <th>Port</th>
+            <th>Host Address</th>
+            <th>Out of Scope</th>
+            <th>DELETE</th>
+            <th>CLAIMED</th>
+            <th>COMPLETE</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for control in controls %}
+        <tr>
+            <td>
+                <!-- Checkbox for selecting the row -->
+                <input type="checkbox" name="targets" value="{{ control.id }}" class="form-check-input">
+            </td>
+            <td>{{ control.ScanGroupingProject|default:"-" }}</td>
+            <td>
+                <a href="{% url 'EgoControlBoardpk' control.id %}">
+                    {{ control.ScanProjectByName|default:"-" }}
+                </a>
+            </td>
+            <td>{{ control.Port|default:"-" }}</td>
+            <td>{{ control.HostAddress|default:"-" }}</td>
+            <td>{{ control.OutOfScope|default:"-" }}</td>
+            <td>
+                <form action="{% url 'EgoControlBoardDelete' control.id %}" method="GET">
+                    {% csrf_token %}
+                    <input type="hidden" name="_method" value="delete">
+                    <input type="submit" value="Delete">
+                </form>
+            </td>
+            </td>
+            <td>{{ control.claimed }}</td>
+            <td>{{ control.Completed}}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 
-                        </td>
-                    </tr>
-                    {% endfor %}
+    <!-- Other form fields -->
+    <label class="form-label">Host Address:</label>
+    {{ form.HostAddress }}
 
-                </tbody>
-            </table>
-
-            <table class="Customers_table">
-                <tbody>
-                    <tr>
-                        <th class="table_id_customer">Customer Id</th>
-                        <th class="table_Project_Group_Name">Group Name</th>
-                        <th class="table_Project_Name">Project Name</th>
-                        <th class="table_customer_name">Customer Name</th>
-                        <th class="table_Date_Created">Date Created</th>
-                    </tr>
-                    {% for customer in customers %}
-                    <tr>
-                        <td class="table_id_customer">
-                            {{customer.id}}
-                        </td>
-                        <td class="table_Project_Group_Name">
-                            {{customer.groupingProject}}
-                        </td>
-                        <td class="table_Project_Name">
-                            <div>{{customer.nameCustomer}}</div>
-                        </td>
-                        <td class="table_customer_name">
-                            {{customer.nameProject}}
-                        </td>
-                        <td class="table_Date_Created">
-                            {{customer.dateCreated}}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-
+    <label class="form-label">Port:</label>
+    {{ form.Port }}
+        <div class="checkbox-group" style="margin-top: 20px;">
+            <label><input type="checkbox" name="HostAddress" class="form-check-input"> Host Address</label><br>
+            <label><input type="checkbox" name="Port" class="form-check-input"> Port</label><br>
+            <label>
+                {{ form.BruteForce }}
+                BruteForce
+            </label><br>
+            <label>
+                {{ form.BruteForce_WL }}
+                BruteForce_WL
+            </label><br>
+            <label><input type="checkbox" name="Update_RecordsCheck" class="form-check-input"> Update Records Check</label><br>
+            <label><input type="checkbox" name="LoopCustomersBool" class="form-check-input"> Loop Customers Bool</label><br>
+            <label><input type="checkbox" name="Completed" class="form-check-input"> Completed</label><br>
+            <label><input type="checkbox" name="claimed" class="form-check-input"> Claimed</label><br>
+            <label><input type="checkbox" name="failed" class="form-check-input"> Failed</label><br>
+            <label><input type="checkbox" name="scan_records_censys" class="form-check-input"> Scan Records Censys</label><br>
+            <label><input type="checkbox" name="crtshSearch_bool" class="form-check-input"> crtshSearch_bool</label><br>
         </div>
-
+    <!-- Submit button -->
+    <button type="submit" class="btn btn-primary">Update Selected</button>
+</form>
+</div>
 {% endblock %}

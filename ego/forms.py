@@ -161,7 +161,7 @@ class create_egocontrol(forms.ModelForm):
             'OutOfScope', 'chunk_size', 'Port', 'HostAddress', 'Scan_IPV_Scope_bool', 
             'Scan_DomainName_Scope_bool', 'BruteForce', 'BruteForce_WL', 'scan_records_censys', 
             'crtshSearch_bool', 'Update_RecordsCheck', 'LoopCustomersBool', 
-            'Completed', 'Gnaw_Completed', 'failed', 'scan_objects'
+            'Completed', 'claimed', 'failed', 'scan_objects'
         ]
         widgets = {
             'OutOfScope': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 450px;'}),
@@ -176,7 +176,7 @@ class create_egocontrol(forms.ModelForm):
             'Update_RecordsCheck': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'LoopCustomersBool': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'Completed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'Gnaw_Completed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'claimed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'failed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'scan_objects': forms.Textarea(attrs={'class': 'form-control', 'style': 'width: 750px;'}),
         }
@@ -195,7 +195,7 @@ class create_egocontrol(forms.ModelForm):
         self.fields['Update_RecordsCheck'].initial = False
         self.fields['LoopCustomersBool'].initial = False
         self.fields['Completed'].initial = False
-        self.fields['Gnaw_Completed'].initial = False
+        self.fields['claimed'].initial = False
         self.fields['failed'].initial = False
         self.fields['scan_objects'].initial = list()
 
@@ -207,7 +207,7 @@ class PKcreate_egocontrol(forms.ModelForm):
             'OutOfScope', 'chunk_size', 'Port', 'HostAddress', 'Scan_IPV_Scope_bool', 
             'Scan_DomainName_Scope_bool', 'BruteForce', 'BruteForce_WL', 'scan_records_censys', 
             'crtshSearch_bool', 'Update_RecordsCheck', 'LoopCustomersBool', 
-            'Completed', 'Gnaw_Completed', 'failed', 'scan_objects'
+            'Completed', 'claimed', 'failed', 'scan_objects'
         ]
         widgets = {
             'OutOfScope': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 450px;'}),
@@ -222,7 +222,7 @@ class PKcreate_egocontrol(forms.ModelForm):
             'Update_RecordsCheck': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'LoopCustomersBool': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'Completed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'Gnaw_Completed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'claimed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'failed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'scan_objects': forms.Textarea(attrs={'class': 'form-control', 'style': 'width: 750px;'}),
         }
@@ -241,29 +241,38 @@ class PKcreate_egocontrol(forms.ModelForm):
         self.fields['Update_RecordsCheck'].initial = False
         self.fields['LoopCustomersBool'].initial = False
         self.fields['Completed'].initial = False
-        self.fields['Gnaw_Completed'].initial = False
+        self.fields['claimed'].initial = False
         self.fields['failed'].initial = False
         self.fields['scan_objects'].initial = list()
 
-from django.forms import ModelForm
+from django.forms import ModelForm, MultipleChoiceField, CheckboxSelectMultiple
 from django.db.models import F
 
 class EgoControlUpdateForm(forms.ModelForm):
+    # Pseudo field for listing all EgoControl objects
+    targets = MultipleChoiceField(
+        choices=[],  # Choices will be populated dynamically
+        widget=CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        required=False
+    )
+
     class Meta:
         model = EgoControl
         fields = [
-            'BruteForce', 'BruteForce_WL', 'scan_records_censys', 'crtshSearch_bool', 
-            'Update_RecordsCheck', 'LoopCustomersBool', 'Completed', 
-            'Gnaw_Completed', 'failed'
+            'HostAddress', 'Port', 'BruteForce', 'BruteForce_WL',
+            'Update_RecordsCheck', 'LoopCustomersBool', 'Completed',
+            'claimed', 'failed', 'scan_records_censys', 'crtshSearch_bool',
         ]
         widgets = {
+            'Port': forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 120px;'}),
+            'HostAddress': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 750px;'}),
             'BruteForce': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'scan_records_censys': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'crtshSearch_bool': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'Update_RecordsCheck': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'LoopCustomersBool': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'Completed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'Gnaw_Completed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'claimed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'failed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -273,6 +282,11 @@ class EgoControlUpdateForm(forms.ModelForm):
         for field_name in self.fields:
             if isinstance(self.fields[field_name].widget, forms.CheckboxInput):
                 self.fields[field_name].initial = False
+
+        # Dynamically populate the choices for the `targets` field with ScanProjectByName
+        self.fields['targets'].choices = [
+            (obj.id, obj.ScanProjectByName) for obj in EgoControl.objects.all() if obj.ScanProjectByName
+        ]
 
 def update_egocontrol_instances(form_data):
     """
@@ -550,7 +564,7 @@ class create_mantisControl(forms.ModelForm):
             'OutOfScope': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 450px;'}),
             'ScanProjectByID': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 350px;'}),
             'ScanGroupingProject': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 250px;'}),
-            'ScanProjectByName': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 250px;'}),
+            'ScanProjectByName': forms.TextInput(attrs={'class': 'form-control', 'style': 'width: 250px;'}) ,
             'Customer_chunk_size': forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 80px;'}),
             'Record_chunk_size': forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 80px;'}),
             'Global_CoolDown': forms.NumberInput(attrs={'class': 'form-control', 'style': 'width: 80px;'}),
