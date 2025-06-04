@@ -12,6 +12,39 @@
         <input type="submit" value="Search" class="btn btn-primary mt-2">
     </form>
     <div class="Customer_div">
+    <div id="server-header-list"></div>
+<script>
+    // Pass the server_counter as a JSON object
+    const serverCounter = {{ server_counter|safe }};
+
+    // Calculate min and max for scaling
+    const counts = Object.values(serverCounter);
+    const minCount = Math.min(...counts);
+    const maxCount = Math.max(...counts);
+
+    // Set min and max font sizes (in px)
+    const minFont = 16;
+    const maxFont = 48;
+
+    function scaleFont(count) {
+        if (maxCount === minCount) return maxFont;
+        // Linear scaling
+        return minFont + (count - minCount) * (maxFont - minFont) / (maxCount - minCount);
+    }
+
+    const container = document.getElementById('server-header-list');
+    for (const [server, count] of Object.entries(serverCounter)) {
+        const a = document.createElement('a');
+        a.href = "#";
+        a.textContent = `${server} (${count})`;
+        a.style.fontSize = scaleFont(count) + "px";
+        a.style.fontWeight = "bold";
+        a.style.marginRight = "16px";
+        a.style.color = "#003366";
+        container.appendChild(a);
+    }
+</script>
+
     <strong>{{customer_count}}</strong>
     <strong>{{ total_record_count }}</strong>
         <table class="table table-striped">

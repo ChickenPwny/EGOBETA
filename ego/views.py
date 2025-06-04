@@ -62,6 +62,7 @@ from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NO
 from rest_framework.views import APIView
 from twilio.twiml.messaging_response import MessagingResponse
 from .mixins import RoleRequiredMixin
+from collections import Counter
 
 class UserProfilePasswordResetForm(PasswordResetForm):
     def get_users(self, email):
@@ -605,10 +606,31 @@ def WordClassCreate(request):
 def CustomerVIEW(request):
     search_query = request.GET.get('search', '')
     customers = Customers.objects.all() 
+    server_set = set()
+
+
+    request_meta_qs = RequestMetaData.objects.filter(
+        record_id__in=Record.objects.filter(customer_id__in=customers)
+    )
+
+    # Get all non-null 'server' header values
+    server_list = [
+        req_meta['headers'].get('server')
+        for req_meta in request_meta_qs.values('headers')
+        if req_meta['headers'] and req_meta['headers'].get('server')
+    ]
+
+    server_counter = Counter(server_list)
+
+
     customer_count = customers.count()
     customers = customers.annotate(record_count=Count('customerrecords'))
     total_record_count = customers.aggregate(total=Count('customerrecords'))['total'] or 0
-    return TemplateResponse(request, 'Customers/customers.html', {"Customers": customers, "total_record_count":total_record_count, "customer_count":customer_count})
+    return TemplateResponse(request, 'Customers/customers.html', {"Customers": customers,
+                                                                 "total_record_count":total_record_count,
+                                                                 "customer_count":customer_count,
+                                                                 "server_counter": dict(server_counter)
+                                                                 })
 
 
 @login_required
@@ -1000,7 +1022,7 @@ def GnawControlBulkImport(request):
                 ScanProjectByID=getattr(customer, 'id', ''),
                 HostAddress=default_host,
                 Port=default_port, 
-                Record_chunk_size='5',
+                Record_chunk_size='5',  
                 Gnaw_Completed=False,
                 failed=False,
                 severity = 'high, critical'

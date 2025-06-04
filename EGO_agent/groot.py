@@ -503,7 +503,7 @@ def run_nuclei(url, severity, path, Nuclei_rate_limit):
         '-interactions-poll-duration', '10',
         '-interactions-eviction', '30',
         '-concurrency', '1',
-        '-rl', '2',
+        '-rl', Nuclei_rate_limit,
         '-timeout', '3',
         '-max-host-error', '1',
         '-silent',
