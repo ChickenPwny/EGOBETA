@@ -10,7 +10,10 @@ app_name = 'ego'
 urlpatterns = [
     
     path('', Login_View.as_view(), name='login'),
+    path('bucket-validations/bulk-delete/', BucketValidationBulkDeleteView.as_view(), name='bucketvalidation-bulk-delete'),
+    path('GnawControlBoard/bulk_delete/', GnawControlBulkDelete, name='GnawControlBulkDelete'),
     path('get-scan-project-data/', get_scan_project_data, name='get_scan_project_data'),
+    path('GnawControlBoard/bulk_import/', GnawControlBulkImport, name='GnawControlBulkImport'),
     path('update-egocontrol/', update_egocontrol_view, name='update_egocontrol'),
     path('login/', Login_View.as_view(), name='login'),
     path('password_reset/', UserProfilePasswordResetView.as_view(), name='password_reset'),

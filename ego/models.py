@@ -34,6 +34,7 @@ from django.contrib.auth.models import User, Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction
+from django.utils import timezone
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -291,7 +292,6 @@ def create_bearer_token(sender, instance, **kwargs):
 ##############################
 class GnawControl(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    egoAgentID = models.ForeignKey(EGOAgent, on_delete=models.CASCADE, related_name='egoAgentID', blank=True)
     NucleiScan = models.BooleanField(default='True')
     Ipv_Scan = models.BooleanField(default='False')
     LoopCustomersBool = models.BooleanField(default='False')
@@ -300,10 +300,10 @@ class GnawControl(BaseModel):
     ScanProjectByID = models.CharField(max_length = 75, blank=True, help_text='<fieldset style="background-color: lightblue;display: inline-block;">Please provide the groups name example BugCrowd, Hackerone, or WorkPlace</fieldset>')
     ScanGroupingProject = models.CharField(max_length = 75, blank=True, help_text='<fieldset style="background-color: lightblue;display: inline-block;">Please provide a Covert Name for the project, this will help keep your project a secret from other users.</fieldset>')
     ScanProjectByName = models.CharField(max_length = 75, blank=True, help_text='<fieldset style="background-color: lightblue;display: inline-block;">The real name of the customer, this is a secret</fieldset>')
-    Customer_chunk_size = models.IntegerField(default='7', help_text='<fieldset style="background-color: lightblue;display: inline-block;">The main url for the customer, or the BugBounty url to the customer platform. </fieldset>')
-    Record_chunk_size = models.IntegerField(default='20', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Default is false, this will tell the engine\'s to skip this target if an <b>All Customer scan</b> is ran.</fieldset>')
+    Customer_chunk_size = models.IntegerField(default='1', help_text='<fieldset style="background-color: lightblue;display: inline-block;">The main url for the customer, or the BugBounty url to the customer platform. </fieldset>')
+    Record_chunk_size = models.IntegerField(default='3', help_text='<fieldset style="background-color: lightblue;display: inline-block;">Default is false, this will tell the engine\'s to skip this target if an <b>All Customer scan</b> is ran.</fieldset>')
     Global_Nuclei_CoolDown= models.IntegerField(default='4', blank=True, null=True)
-    Global_Nuclei_RateLimit= models.IntegerField(default='', blank=True, null=True)
+    Global_Nuclei_RateLimit= models.IntegerField(default='2', blank=True, null=True)
     Port = models.IntegerField(default='9000', help_text="<fieldset style=\"background-color: lightblue;display: inline-block;\">The default port number is a dragon ball reference. It is over 9000!</fieldset>")
     HostAddress = models.CharField(max_length=256, default='http://127.0.0.1', help_text="<fieldset style=\"background-color: lightblue;display: inline-block;\">The domain name of the server hosting the API, if the api is ran locally this address would be the default. </fieldset>")
     severity = models.CharField(max_length=256, default='info, low, medium, high, critical, unknown', help_text='<fieldset style="background-color: lightblue;display: inline-block;">please provide, one of the severity options to scan for or use them all. <b>Severity</b>info,</br> low,</br> medium,</br> high,</br> critical,</br> unknown</br></fieldset>')
@@ -393,7 +393,8 @@ class MantisControls(BaseModel):
     NucleiScan = models.BooleanField(default=False)
 
 ##############################
-##### manager/api/credentials
+##### manage
+#r/api/credentials
 ##############################
 class FindingMatrix(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -750,17 +751,19 @@ class LLMNR(models.Model):
     Requester_MAC = models.CharField(max_length=255)
     Poisoned_IP = models.CharField(max_length=255)
     
+
 class BucketValidation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)    
-    record = models.ForeignKey(Record, on_delete=models.CASCADE, related_name="BucketValidation")  
-    dateCreated = models.DateTimeField(auto_now_add=True, blank=True, editable=False)
-    bucket_name = models.CharField(max_length=255) 
-    is_valid = models.BooleanField(default=False)  
-    unauth_upload = models.BooleanField(default=False)  
-    uploaded_key = models.CharField(max_length=255, null=True, blank=True) 
-    contents_accessible = models.BooleanField(default=False)  
-    contents = models.JSONField(default=list) 
-    error = models.TextField(null=True, blank=True)  
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    record = models.ForeignKey('Record', on_delete=models.CASCADE, related_name="bucketvalidation")
+    datecreated = models.DateTimeField(auto_now_add=True, blank=True, editable=False)  # <-- use lowercase
+    updated = models.DateTimeField(default=timezone.now, blank=True, editable=False)
+    bucket_name = models.CharField(max_length=255, default="", blank=True)
+    is_valid = models.BooleanField(default=False)
+    unauth_upload = models.BooleanField(default=False)
+    uploaded_key = models.CharField(max_length=255, null=True, blank=True, default="")
+    contents_accessible = models.BooleanField(default=False)
+    contents = models.JSONField(default=list, blank=True)
+    error = models.TextField(null=True, blank=True, default="")
 
     def __str__(self):
-        return self.bucket_name
+        return self.bucket_name or str(self.id)

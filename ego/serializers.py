@@ -737,6 +737,8 @@ class TotalRecordSerializer(serializers.ModelSerializer):
             'CMS',
             'ASN',
             'Images',
+            'aws_scan',
+
             )
 
 #############################################################        
@@ -850,7 +852,7 @@ class Totalnist_serializers(serializers.ModelSerializer):
         return record
 
 class TotalRecords(serializers.ModelSerializer):
-    
+    bucketvalidation = BucketValidationSerializer(many=True)
     GEOCODES = GEOCODESerializer(many=True)
     foundVuln_record = FoundVulnSerializer(many=True)
     Nmaps_record = NmapSerializer(many=True)
@@ -868,7 +870,7 @@ class TotalRecords(serializers.ModelSerializer):
             'md5',
             'domainname',
             'subDomain',
-            
+            'aws_scan',
             'dateCreated',
             'alive',
             'ip',
@@ -886,12 +888,17 @@ class TotalRecords(serializers.ModelSerializer):
             'nucleiRecords_record',
             'Templates_record',
             'foundVuln_record',
-
+            'bucketvalidation',
         )
       
 
     def create(self, validated_data):
         
+        _data = validated_data.pop('bucketvalidation')
+        record = BucketValidation.objects.create(**validated_data)
+        for record in _data:
+            BucketValidation.objects.create(record=record, **record)
+
         _data = validated_data.pop('RecRequestMetaData')
         record = RequestMetaData.objects.create(**validated_data)
         for record in _data:
@@ -904,7 +911,7 @@ class TotalRecords(serializers.ModelSerializer):
 
         _data = validated_data.pop('DNSQuery_record')
         record = Record.objects.create(**validated_data)
-        for record in D_data:
+        for record in _data:
             DNSQuery.objects.create(record=record, **record)
 
         _data = validated_data.pop('DNSAuthority_record')

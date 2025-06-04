@@ -15,9 +15,8 @@ from itertools import groupby
 from itertools import repeat
 from itertools import chain
 from itertools import product
-import datetime
 from re import sub
-
+from datetime import datetime, timezone
 # customer imports
 import EgoSettings
 from libs.EgoDomainName import *
@@ -26,6 +25,7 @@ from libs.EgoDomainSearch import *
 from libs.EgoNmapModule import *
 from libs.EgoBox import *
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -269,10 +269,12 @@ def Ego(username, password):
                                             print('skipping')
                                             pass
                                         else:
+                                            print('OutOfScopeString',rjson['OutOfScopeString'])
                                             try:
                                                 OutOfScopeString = rjson['OutOfScopeString']
                                             except:
                                                 OutOfScopeString = None
+                                                
                                             bool_Ipv4Scope = bool(Ipv4Scope)
                                             print(f'Bool values domain{bool_Scope} {Scope}   ipv  {bool_Ipv4Scope} {Ipv4Scope}')
                                             KEY = rjson["id"]
@@ -476,6 +478,7 @@ def Ego(username, password):
                             Worddsresults[0].update({"KnownTLD": FoundTLD})
                         except Exception as E:
                             pass
+                        print('OutOfScopeString',rjson['OutOfScopeString'])
                         try:
                             OutOfScopeString = rjson['OutOfScopeString']
                         except:
@@ -656,8 +659,10 @@ def Ego(username, password):
                                     pass
                             print('done recordaaaaaaaaaaaaaaaaaaaaaa ')
                             urlhost= f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/create/{customerId}"
+                            
                             datetime_object = datetime.datetime.utcnow().isoformat()[:-3]+'Z'
                             datetime_object = dict.fromkeys(['LastScanned'], datetime_object)
+                            
                             recs = json.dumps(datetime_object)
                             headers.update(auth_token_json)
                             getRecords= requests.patch(urlhost, data=recs, headers=headers, verify=False, timeout=60)
@@ -665,7 +670,6 @@ def Ego(username, password):
                             urlUpdateComplete = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EgoControls/{id_EgoControl}"
                             dataPUt = {"Completed": True}
                             recs = json.dumps(dataPUt)
-                            print(recs)
                             headers.update(auth_token_json)
                             request = requests.patch(urlUpdateComplete, data=recs, headers=headers, verify=False, timeout=60)
                             response = request.json()
@@ -683,14 +687,6 @@ def Ego(username, password):
                 response = request.json()
                 print('done record ')
                 return True
-
-            
-                # scopedstored is a series of list in a list so its nested the for loop is to escape the first list
-                #
-                #
-                #need to merge inscope with out of scope then enum inscope items
-                #print('#############################################')
-                #print('*.here ScopedStored', ScopedItemsToScans)
 
     except Exception as E:
         print(E)

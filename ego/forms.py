@@ -378,6 +378,13 @@ class create_gnawcontrol(forms.ModelForm):
         self.fields['Gnaw_Completed'].initial = False
         self.fields['failed'].initial = False
 
+class bulk_create_gnawcontrol(forms.ModelForm):
+    class Meta:
+        model = GnawControl
+        fields = [
+            ]
+
+
 class customer_pk(forms.ModelForm):
     class Meta:
         model = Customers

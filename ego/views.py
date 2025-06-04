@@ -548,6 +548,8 @@ def WordClassBulkCreate(request, pk):
         form = UploadFileForm()
         return render(request, 'WordList/WordClassCreate.html', {'form': form})
 
+
+
 from django.db import transaction
 
 @login_required
@@ -603,8 +605,10 @@ def WordClassCreate(request):
 def CustomerVIEW(request):
     search_query = request.GET.get('search', '')
     customers = Customers.objects.all() 
+    customer_count = customers.count()
     customers = customers.annotate(record_count=Count('customerrecords'))
-    return TemplateResponse(request, 'Customers/customers.html', {"Customers": customers})
+    total_record_count = customers.aggregate(total=Count('customerrecords'))['total'] or 0
+    return TemplateResponse(request, 'Customers/customers.html', {"Customers": customers, "total_record_count":total_record_count, "customer_count":customer_count})
 
 
 @login_required
@@ -966,6 +970,48 @@ def GnawControlBoardsPK(request, pk):
             form.save()
         return HttpResponseRedirect(f'/GnawControlBoard/{results.pk}')
 
+@login_required
+def GnawControlBulkDelete(request):
+    if request.method == 'POST':
+        deleted, _ = GnawControl.objects.all().delete()
+        messages.success(request, f'{deleted} GnawControl records deleted.')
+    return redirect('GnawControlBoards')
+
+@login_required
+def GnawControlBulkImport(request):
+    if not request.user.is_authenticated:
+        messages.error(request, "You must be logged in to perform this action.")
+        return redirect('GnawControlBoards')
+
+    user_profile = UserProfile.objects.get(user=request.user)
+    default_host = user_profile.FastPassHost or '127.0.0.1'
+    default_port = user_profile.FastPassPort or 80
+
+    # Get all project names already claimed in GnawControl
+    claimed_projects = set(GnawControl.objects.values_list('ScanProjectByName', flat=True))
+
+    created_count = 0
+    for customer in Customers.objects.all():
+        project_name = getattr(customer, 'nameProject', '')
+        if project_name and project_name not in claimed_projects:
+            GnawControl.objects.create(
+                ScanGroupingProject=getattr(customer, 'groupingProject', ''),
+                ScanProjectByName=project_name,
+                ScanProjectByID=getattr(customer, 'id', ''),
+                HostAddress=default_host,
+                Port=default_port, 
+                Record_chunk_size='5',
+                Gnaw_Completed=False,
+                failed=False,
+                severity = 'high, critical'
+            )
+            created_count += 1
+
+    messages.success(request, f'Bulk import completed. {created_count} new GnawControl objects created.')
+    return redirect('GnawControlBoards')
+
+
+
 ## EGO
 @login_required
 def EgoControlBoard(request):
@@ -1045,9 +1091,7 @@ def update_egocontrol_view(request):
         # Redirect to EgoControlBoard after updating
         return redirect('EgoControlBoard')  # Ensure 'EgoControlBoard' matches the URL name in urls.py
 
-    # If GET request, render the EgoControlBoard template
-    controls = EgoControl.objects.all()  # Fetch all EgoControl objects for the table
-    return render(request, 'ego/EgoControlBoard.html', {'controls': controls})
+    return redirect('EgoControlBoard')
 
 
 @login_required
@@ -1069,6 +1113,12 @@ def EgoControlBoardpk(request, pk):
     else:
         form = PKcreate_egocontrol(instance=results)
     return TemplateResponse(request, 'EgoControl/EgoControlBoardpk.html', {"control": results, "form":form})
+
+class BucketValidationBulkDeleteView(View):
+    def post(self, request, *args, **kwargs):
+        BucketValidation.objects.all().delete()
+        messages.success(request, "All BucketValidation objects have been deleted.")
+        return redirect('Mantis')
 
 #VULNS 
 # list vulns found
@@ -1703,6 +1753,8 @@ def create_ego_agent(request):
         form = EGOAgentForm()
         return TemplateResponse(request, 'EgoControl/create_ego_agent.html', {'form': form, "data": data})
 
+
+
 @login_required
 def delete_ego_agent(request, pk):
     print('here')
@@ -1817,27 +1869,27 @@ class TemplatesCreateViewSet(BaseView, generics.CreateAPIView):
     serializer_class = TemplatesSerializer
     queryset = Template.objects.all()
 
-class WordListGroupListViewSet(generics.ListAPIView):
+class WordListGroupListViewSet(BaseView,generics.ListAPIView):
     serializer_class = WordListGroupSerializer
     queryset = WordListGroup.objects.all()
     
-class WordListGroupCreateViewSet(generics.CreateAPIView):
+class WordListGroupCreateViewSet(BaseView,generics.CreateAPIView):
     serializer_class = WordListGroupSerializer
     queryset = WordListGroup.objects.all()
 
-class WordListGroupUpdateViewSet( generics.RetrieveUpdateDestroyAPIView):
+class WordListGroupUpdateViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = WordListGroupSerializer
     queryset = WordListGroup.objects.all()
 
-class WordListListViewSet( generics.ListAPIView):
+class WordListListViewSet(BaseView, generics.ListAPIView):
     serializer_class = WordListSerializer
     queryset = WordList.objects.all()
     
-class WordListCreateViewSet( generics.CreateAPIView):
+class WordListCreateViewSet(BaseView, generics.CreateAPIView):
     serializer_class = WordListSerializer
     queryset = WordList.objects.all()
 
-class WordListUpdateViewSet( generics.RetrieveUpdateDestroyAPIView):
+class WordListUpdateViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = WordListSerializer
     queryset = WordList.objects.all()
 
@@ -1941,7 +1993,7 @@ class CustomersCreateViewSet(BaseView, generics.CreateAPIView):
     serializer_class = CustomerSerializer
     queryset = Customers.objects.all()
 
-class CustomersRetrieveLimitedViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+class CustomersRetrieveLimitedViewSet(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = limitedCustomerSerializer
     queryset = Customers.objects.all()
 
@@ -1957,7 +2009,7 @@ class CustomersListViewSet(BaseView, generics.ListAPIView):
 #    serializer_class = VulnCardSerializer
 #    queryset = VulnCard.objects.all()
 
-class CustomersViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+class CustomersViewSet(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomerRecordSerializer
     queryset = Customers.objects.all()
 
@@ -2087,14 +2139,14 @@ class BucketValidationListViewSet(BaseView, generics.ListAPIView):
     serializer_class = BucketValidationSerializer
     queryset = BucketValidation.objects.all()
 
-class BucketValidationCreateViewSet(BaseView, generics.CreateAPIView):
+class BucketValidationCreateViewSet( generics.CreateAPIView):
     """
     ViewSet for creating a new BucketValidation instance.
     """
     serializer_class = BucketValidationSerializer
     queryset = BucketValidation.objects.all()
 
-class BucketValidationViewSet(BaseView, generics.RetrieveUpdateDestroyAPIView):
+class BucketValidationViewSet( generics.RetrieveUpdateDestroyAPIView):
     """
     ViewSet for retrieving, updating, or deleting a BucketValidation instance.
     """
