@@ -16,7 +16,10 @@
 </head>
 <body>
     <h1>Mantis - Vulnerabilities</h1>
-
+<form method="post" action="{% url 'bucketvalidation-bulk-delete' %}" style="display:inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Bulk Delete All</button>
+</form>
     <!-- Search Form -->
     <form method="get" action="{% url 'Mantis' %}">
         <input type="text" name="q" placeholder="Search vulnerabilities..." value="{{ request.GET.q }}">

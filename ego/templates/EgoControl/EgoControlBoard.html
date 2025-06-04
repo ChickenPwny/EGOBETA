@@ -22,6 +22,7 @@
             <th>Host Address</th>
             <th>Out of Scope</th>
             <th>DELETE</th>
+            <th>FAILED</th>
             <th>CLAIMED</th>
             <th>COMPLETE</th>
         </tr>
@@ -50,8 +51,15 @@
                 </form>
             </td>
             </td>
-            <td>{{ control.claimed }}</td>
-            <td>{{ control.Completed}}</td>
+            <td class="{% if control.failed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                {{ control.failed }}
+            </td>
+            <td class="{% if control.claimed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                {{ control.claimed }}
+            </td>
+            <td class="{% if control.Completed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                {{ control.Completed }}
+            </td>
         </tr>
         {% endfor %}
     </tbody>

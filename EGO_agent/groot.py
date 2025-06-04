@@ -1,4 +1,3 @@
-import fuzzywuzzy
 from itertools import repeat
 import multiprocessing as mp
 from multiprocessing import Pool
@@ -449,18 +448,89 @@ def get_nuclei_rate_limit(Global_Nuclei_CoolDown, Global_Nuclei_RateLimit):
     else:
         return ['-rate-limit', str(Global_Nuclei_RateLimit)]
 
-def run_nuclei(url, severity, path, Nuclei_rate_limit):
+import subprocess
+import os
+from stem.control import Controller
+import socks
+import socket
+
+def connect_to_tor():
     try:
-        print(url)
-        nuclei = subprocess.check_output([f'{EgoSettings.nuclei}', '-no-color','-vv', '-jsonl', '-silent', 
-                                        '-interactions-cooldown-period', '30', 
-                                        '-interactions-poll-duration', '10', 
-                                        '-interactions-eviction', '30'] + Nuclei_rate_limit + ['-u', url,  
-                                        '-severity', severity, '-output', path], text=True)
-        return nuclei.split('\n')
-    except Exception as E:
-        print(E)
-        return None
+        with Controller.from_port(port=9051) as controller:
+            controller.authenticate(password='your_tor_password')  # Replace with your Tor control password
+            controller.signal('NEWNYM')
+            print("Connected to Tor control port and requested new identity.")
+            return True
+    except Exception as e:
+        print(f"Failed to connect to Tor control port: {e}")
+        return False
+
+def get_active_tor_proxy():
+    for port in [9050, 9150]:
+        try:
+            s = socks.socksocket()
+            s.set_proxy(socks.SOCKS5, "127.0.0.1", port)
+            s.settimeout(2)
+            s.connect(("check.torproject.org", 80))
+            s.close()
+            print(f"Tor SOCKS5 proxy is active on port {port}.")
+            return port
+        except Exception:
+            continue
+    print("Tor SOCKS5 proxy not active.")
+    return None
+
+def run_nuclei(url, severity, path, Nuclei_rate_limit):
+    def _run(cmd, env=None):
+        try:
+            result = subprocess.check_output(cmd, text=True, env=env)
+            return result.split('\n')
+        except subprocess.CalledProcessError as e:
+            print(f"Nuclei exited with status {e.returncode}")
+            return None
+        except Exception as e:
+            print(f"Nuclei failed: {e}")
+            return None
+
+    print(f"Scanning {url}")
+    nuclei_cmd = [
+        f'{EgoSettings.nuclei}',
+        '-tags', 'cve',
+        '-no-color',
+        '-vv',
+        '-jsonl',
+        '-interactions-cooldown-period', '30',
+        '-interactions-poll-duration', '10',
+        '-interactions-eviction', '30',
+        '-concurrency', '1',
+        '-rl', '2',
+        '-timeout', '3',
+        '-max-host-error', '1',
+        '-silent',
+        '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    ] + Nuclei_rate_limit + [
+        '-u', url,
+        '-severity', severity,
+        '-output', path
+    ]
+
+    # Attempt with Tor proxy
+    env = os.environ.copy()
+    tor_port = get_active_tor_proxy()
+    if tor_port:
+        env['HTTP_PROXY'] = f'socks5h://127.0.0.1:{tor_port}'
+        env['HTTPS_PROXY'] = f'socks5h://127.0.0.1:{tor_port}'
+        print("Trying Nuclei through Tor...")
+        result = _run(nuclei_cmd, env)
+        if result:
+            return result
+        print("Tor failed, retrying without proxy...")
+
+    # Fallback: no proxy
+    return _run(nuclei_cmd)
+
+
+
 
 def process_nuclei_results(nuclei_results, record_id, HostAddress, Port, auth_token_json):
     for i in nuclei_results:
@@ -471,16 +541,33 @@ def process_nuclei_results(nuclei_results, record_id, HostAddress, Port, auth_to
 
 def nuclei_func(domain, NucleiScan, severity, Global_Nuclei_CoolDown, Global_Nuclei_RateLimit, ego_id, HostAddress=EgoSettings.HostAddress, Port=EgoSettings.Port, Ipv_Scan=False, auth_token_json=None):
     try:
-        update_gnaw_control(domain['subDomain'], ego_id, auth_token_json)
+
         record_id = domain['id']
         alive = domain["alive"]
+        RequestMetaData = domain["RecRequestMetaData"]
         p = domain['subDomain']
         port = domain['OpenPorts']
         domain_set = DomainName_CREATOR(p)
         url, fulldomain = get_url(domain_set, port)
         Record_NucleiScan = domain['nucleiBool']
-        if Record_NucleiScan == NucleiScan:
-            if Ipv_Scan == True:
+        if alive== True and RequestMetaData:
+            if Record_NucleiScan == NucleiScan:
+                if Ipv_Scan == True:
+                    severity_scored = 'info,low,medium,high,critical,unknown'
+                    severity_scored_list = re.split(';|,|\*|\n', severity_scored)
+                    severity_list = severity.split(",")
+                    if any(list == severity_list for list in severity_scored_list):
+                        return False
+                    else:
+                        readyson = fulldomain.replace('.', '_')
+                        path = get_path(readyson)
+                        Nuclei_rate_limit = get_nuclei_rate_limit(Global_Nuclei_CoolDown, Global_Nuclei_RateLimit)
+                        nuclei_results = run_nuclei(url, severity, path, Nuclei_rate_limit)
+                        if nuclei_results:
+                            return process_nuclei_results(nuclei_results, record_id, HostAddress, Port, auth_token_json)
+                        else:
+                            return False
+            else:
                 severity_scored = 'info,low,medium,high,critical,unknown'
                 severity_scored_list = re.split(';|,|\*|\n', severity_scored)
                 severity_list = severity.split(",")
@@ -496,20 +583,7 @@ def nuclei_func(domain, NucleiScan, severity, Global_Nuclei_CoolDown, Global_Nuc
                     else:
                         return False
         else:
-            severity_scored = 'info,low,medium,high,critical,unknown'
-            severity_scored_list = re.split(';|,|\*|\n', severity_scored)
-            severity_list = severity.split(",")
-            if any(list == severity_list for list in severity_scored_list):
-                return False
-            else:
-                readyson = fulldomain.replace('.', '_')
-                path = get_path(readyson)
-                Nuclei_rate_limit = get_nuclei_rate_limit(Global_Nuclei_CoolDown, Global_Nuclei_RateLimit)
-                nuclei_results = run_nuclei(url, severity, path, Nuclei_rate_limit)
-                if nuclei_results:
-                    return process_nuclei_results(nuclei_results, record_id, HostAddress, Port, auth_token_json)
-                else:
-                    return False
+            return False
     except Exception as E:
         print('Exception')
         print(E)
@@ -553,56 +627,6 @@ def get_request(url, auth_token_json=None):
         return requests.get(url, headers=auth_token_json, verify=False)
     return requests.get(url, verify=False)
 
-def create_EGOAgent(data, auth_token_json):
-    url = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EGOAgent/"
-    headers = {"Content-type": "application/json", "Accept": "application/json"}
-    dt = datetime.datetime.now()
-    data.update({"lastConnect": dt.strftime('%Y-%m-%d')})
-    egoB = dict.fromkeys(['alive'], True)    
-    data.update(egoB)
-    if auth_token_json:
-        headers.update(auth_token_json)
-    response = requests.post(url, data=json.dumps(data), headers=headers, verify=False)
-    return response.json()
-
-def update_agent_checkin(agent_id, auth_token_json):
-    # Prepare the URL and headers
-    url = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EGOAgent/{agent_id}/"
-    headers = {"Content-type": "application/json", "Accept": "application/json"}
-    if auth_token_json:
-        headers.update(auth_token_json)
-    # Prepare the data with the current date and time
-    dt = datetime.datetime.now()
-    # Format it as a string
-    dt_string = dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    # Now you can use dt_string in your Django model
-    data = {"checkin": dt_string}
-    
-    data = json.dumps(data)
-    print(data)
-    print(url)
-    print(headers)
-    # Send the PATCH request
-    response = requests.patch(url, data=data, headers=headers, verify=False)
-    
-    return response.json()
-
-def update_AgentControl(ego_id, agent_id, auth_token_json):
-    # Get the current list of UUIDs in the 'egoAgent' field
-    headers = {"Content-type": "application/json", "Accept": "application/json"}
-    headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleeWbKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"})
-    if auth_token_json:
-        headers.update(auth_token_json)
-    # Update the 'egoAgent' field with the new list
-    url_patch = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/GnawControl/{ego_id}"
-    data = {
-        'egoAgentID': agent_id,
-    }
-    rjson = json.dumps(data)
-    response_patch = requests.patch(url_patch, data=rjson, headers=headers, verify=False)
-    return response_patch
-
 def worker_func(records, NucleiScan, severity, Global_Nuclei_CoolDown, Global_Nuclei_RateLimit, ego_id, HostAddress=EgoSettings.HostAddress, Port=EgoSettings.Port, Ipv_Scan=False, auth_token_json=None): 
     # Update GnawControl with the subDomain
     outStore = []
@@ -619,25 +643,12 @@ def register_and_update_agent(auth_token_json=None):
     agent_response_store = []
     for response in responses:
         if not response.get('Gnaw_Completed', False):
-            # If EgoSettings.egoAgent is not set, create a new EGOAgent instance
-            data = {}  # Add necessary data here
-            agent_response = create_EGOAgent(data, auth_token_json)
-            agent_id = agent_response.get('id')  # Assuming the response contains an 'id' key
-            # Update EgoSettings.egoAgent with the new agent's ID
-            EgoSettings.egoAgent = agent_id
-            # Remove special characters and spaces from the string
-            EgoSettings.egoAgent = re.sub(r'\W+', '', str(EgoSettings.egoAgent))
-
-            # Update the GnawControl instance with the new agent's ID
-            ego_id = response.get('id')  # Assuming the response contains an 'id' key
-            update_AgentControl(ego_id, EgoSettings.egoAgent, auth_token_json)
+            ego_id = response.get('id')
             Url_EgoControls = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/GnawControl/{ego_id}"
             request = get_request(Url_EgoControls, auth_token_json)
             response = request.json()    
             response_store.append(response)
-            agent_response_store.append(agent_response)
     return response_store, agent_response_store
-
 
 def update_gnaw_control(sub_domain, ego_id, auth_token_json):
     try:
@@ -657,12 +668,13 @@ def update_gnaw_control(sub_domain, ego_id, auth_token_json):
 
 def gnaw(auth_token_json, responseEgo, responseAgent, return_dict):
     # After registering and updating the agent
-    agent_id = EgoSettings.egoAgentId 
 # Update the agent's checkin
-    update_agent_checkin(agent_id, auth_token_json)
+    print('gnaw')
     responseEgo = responseEgo
     if responseEgo is None:
-        return 'No empty egoAgent found.'
+        print('No empty egoAgent found.')
+        return False
+    
     else:
         NukeOut = []
         if type(responseEgo) == dict:
@@ -761,10 +773,11 @@ def gnaw(auth_token_json, responseEgo, responseAgent, return_dict):
                     request = requests.patch(gnaw_url, data=recs, headers=headers, verify=False)
                     response = request.json()                    
                 else:
-                    print(CUSTOMERS)
+                    print(CUSTOMERS,auth_token_json)
                     getRecords= get_request(CUSTOMERS, auth_token_json)
+                    print(getRecords.status_code)
                     rjson = getRecords.json()
-                    OutOfScopeString = rjson['OutOfScopeString']
+                    OutOfScopeString = None
                     RecordsCheck= rjson["customerrecords"]
                     FullDomainNameSeensIt= set()
                     result = {}
@@ -808,19 +821,12 @@ def gnaw(auth_token_json, responseEgo, responseAgent, return_dict):
                 Nuke_responses  = None
         Nuke_responses=NukeOut
         # Prepare the URL and headers
-        url = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/EGOAgent/{agent_id}/"
-        headers = {"Content-type": "application/json", "Accept": "application/json"}
-        if auth_token_json:
-            headers.update(auth_token_json)
-        # Prepare the data with the scanning status
-        data = {"scanning": False}
-        # Send the PATCH request
-        response = requests.patch(url, data=json.dumps(data), headers=headers, verify=False)
         print('done record ')
     return_dict[os.getpid()] = 'Done'
     return return_dict
 
 def update_AgentControl(ego_id, agent_id, auth_token_json):
+    print('update_AgentControl')
     # Get the current list of UUIDs in the 'egoAgent' field
     headers = {"Content-type": "application/json", "Accept": "application/json"}
     headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleeWbKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"})
@@ -836,6 +842,7 @@ def update_AgentControl(ego_id, agent_id, auth_token_json):
     return response_patch
 
 def update_ClaimedControl(ego_id, agent_id, auth_token_json):
+    print('update_ClaimedControl')
     # Get the current list of UUIDs in the 'egoAgent' field
     headers = {"Content-type": "application/json", "Accept": "application/json"}
     headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleeWbKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"})
@@ -849,44 +856,29 @@ def update_ClaimedControl(ego_id, agent_id, auth_token_json):
     print('meowmeowmeowmeow')
     rjson = json.dumps(data)
     response_patch = requests.patch(url_patch, data=rjson, headers=headers, verify=False)
+    print(response_patch.status_code)
     return response_patch
 
 def update_engine(auth_token_json, return_dict):
+    print('update_engine')
     Url_EgoControls = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/GnawControl/"
     request = get_request(Url_EgoControls, auth_token_json)
     responses = request.json()
     response_store = []
-    agent_response_store = []
     for response in responses:
         claimed = response.get('claimed', False)
         if not response.get('Gnaw_Completed', False):
             if claimed == True:
                 pass
             else:
-                # If EgoSettings.egoAgent is not set, create a new EGOAgent instance
-                data = {}  # Add necessary data here
-                agent_response = create_EGOAgent(data, auth_token_json)
-                if not EgoSettings.egoAgentId:
-                    agent_id = agent_response.get('id')  # Assuming the response contains an 'id' key
-                    # Update EgoSettings.egoAgent with the new agent's ID
-                    EgoSettings.egoAgentId = agent_id
-                    # Remove special characters and spaces from the string
-                    EgoSettings.egoAgentId = re.sub(r'\W+', '', str(EgoSettings.egoAgentId))
-                else:
-                    agent_id = EgoSettings.egoAgentId
-                # Update the GnawControl instance with the new agent's ID
                 ego_id = response.get('id')  # Assuming the response contains an 'id' key
-                update_AgentControl(ego_id, EgoSettings.egoAgentId, auth_token_json)
                 Url_EgoControls = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/GnawControl/{ego_id}"
                 request = get_request(Url_EgoControls, auth_token_json)
-                response = request.json()    
+                response = request.json()
                 response_store.append(response)
-                agent_response_store.append(agent_response)
-                update_agent_checkin(agent_id, auth_token_json)
-                update_ClaimedControl(ego_id, agent_id, auth_token_json)
-                gnaw(auth_token_json, response, agent_response_store, return_dict)
+                update_ClaimedControl(ego_id, EgoSettings.egoAgent, auth_token_json)
+                gnaw(auth_token_json, response, [], return_dict)
                 time.sleep(12)  # Add a delay of 1 second between each request
-
     return return_dict
 
 from queue import Queue

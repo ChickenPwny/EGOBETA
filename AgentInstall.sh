@@ -11,6 +11,7 @@ sudo apt-get install nmap -y
 
 # Install Nuclei
 echo "Installing Nuclei..."
+export PATH=$PATH:$(go env GOPATH)/bin
 curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest | \
 grep "browser_download_url.*nuclei-linux-amd64.zip" | \
 cut -d '"' -f 4 | \

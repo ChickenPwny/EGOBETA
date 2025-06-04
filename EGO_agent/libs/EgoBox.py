@@ -28,7 +28,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 
 import EgoSettings
-seen = []
+
+
+
+global_domains = set()
+
 print(f'{EgoSettings.dump}', f'{EgoSettings.dump}/libs/pyasn/data/i:psn_db_file_name.dat')
 if str(os.name) == 'nt':
     asndb = pyasn.pyasn(r'.\pyasn\data\ipsn_db_file_name.dat')
@@ -46,6 +50,10 @@ class EgoReconFunc:
                    auth_token_json=None,
                    Worddsresults=None
                    ):
+        #access global domain
+        global global_domains        
+        print('scan_scope')
+        #defining variable
         id_EgoControl = SET['id']
         customerId= SET['ScanProjectByID']
         scanPRojectgroup= SET['ScanGroupingProject']
@@ -70,9 +78,13 @@ class EgoReconFunc:
         BruteForceBool = SET['BruteForce']
         BruteForce_WL = SET['BruteForce_WL']
 
+
         record_List_store=[]
+
+        # Add the domain to the global set
         if type(domain) is None:
-            pass
+            print(domain, 'global_domains')
+            return  False
         elif SET['Scan_IPV_Scope_bool'] == True:
             ipvSomething = domain
             domains= domain.get('Ipv')
@@ -100,7 +112,7 @@ class EgoReconFunc:
             results = dask.compute(*record_List)
             record_List_store.append(results)
         elif Scan_DomainName_Scope_bool == True:
-        
+            
             domain_set= DomainNameValidation.CREATOR(domain)
                 
             if domain_set == False:
@@ -109,37 +121,17 @@ class EgoReconFunc:
                 domainname= domain_set['domainname']
                 FullDomainName= domain_set['fulldomain']
                 skip = False
-                if skip == False:
-                    w = whois.whois(FullDomainName)
-                    WHOISKey = w.keys()
-                    if w:
-                        if 'expiration_date' in w:
-                            del w['expiration_date']
-                        if 'creation_date' in w:
-                            del w['creation_date']
-                        if 'status' in w:
-                            del w['status']
-                        if 'updated_date' in w:
-                            del w['updated_date']
-                        if type(w.get('emails')) == str:
-                            w.update({"emails": [ w.get('emails') ]})
-                        if type(w.get('dnssec')) == str:
-                            w.update({"dnssec": [ w.get('dnssec') ]})
-                        if type(w.get('address')) == list:
-                            address_string = ' '.join(w.get('address'))
-                            w.update({"address": address_string})
-                        updatewhoisurl = f"{EgoSettings.HostAddress}:{EgoSettings.Port}/api/whois/create"
-                        w.update({"customer_id": Customer_key.get('Customer_id')})
-                        recs = json.dumps(w, default=EgoReconFunc.serialize_datetime)
-                        create_whois = requests.post(updatewhoisurl, data=recs, verify=False, headers=headers)
-                        WHOIS =  whois.whois(domainname)
+                print('Scan_DomainName_Scope_bool')
+
                 if domainname not in DomainNameseen0:
                     if crtshSearch_bool == False:
+                        print('crtshSearch_bool False')
                         certSearch = None
                     else:
                         Global_Nuclei_CoolDown=(1,300)
                         #Sleep_Generator = round(random.uniform(Global_Nuclei_CoolDown[0], Global_Nuclei_CoolDown[1]), 2)
                         #time.sleep(Sleep_Generator)
+                        print('certSearch')
                         certSearch= EgoDomainSearch.crtshSearch(domainname, CoolDown_Between_Queries, SCOPED=SCOPED, SET=SET)
                         try:
                             cs= certSearch
@@ -150,7 +142,7 @@ class EgoReconFunc:
                         if certSearch == False:
                             pass
                         elif certSearch is not None:
-
+                            
                             record_List = []
                             in_scope= cs.get('in_scope',{})
                             for a in in_scope:
@@ -1164,6 +1156,7 @@ class ToolBox:
         Update_RecordsCheck = SET['Update_RecordsCheck']
         LoopCustomersBool= SET['LoopCustomersBool']
         BruteForce_WL = SET['BruteForce_WL']
+        seen = []
         try:
             if subDomain in seen:
                 pass

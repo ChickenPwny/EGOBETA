@@ -1,5 +1,5 @@
 multiprocessing-logging==0.3.1  # For multiprocessing (standard library, but logging helpers exist)
-dask==2023.10.0
+dask[complete]
 ipaddress==1.0.23  # Standard library in Python 3.3+, but available as a backport
 requests==2.31.0
 urllib3==1.26.16

@@ -127,75 +127,84 @@ class EgoDomainSearch:
         print('crtsh_com_search',data)
         domain_set= DomainNameValidation.CREATOR(data)
         domainname= domain_set['domainname']
-        try:
-            if type(domain_set) is None:
-                return False
-            else:
-                if any(scope in domainname  for scope in SCOPED['SCOPED_set_domain']):
-                    scn= set()
-                    OOS= set()
-                    Dic= {}
-                    suffixList= set()
-                    subdomainList=set()
-                    Global_Nuclei_CoolDown=(30,50)
-                    Sleep_Generator = round(random.uniform(Global_Nuclei_CoolDown[0], Global_Nuclei_CoolDown[1]), 2)
-                    time.sleep(Sleep_Generator)
-                    url = (f"https://crt.sh/?q={domainname}&output=json")
-                    r = requests.get(url, allow_redirects=True, verify=True, timeout=60)
-                    status = r.status_code
-                    rson = r.json()
-                    time.sleep(2)
-                    if status != 200:
-                        
-                        time.sleep(500)
-                        return False
-                    else:
-                        if rson:
-                            listed_rson = ([x["name_value"].split() for x in rson])
-                            for listed in listed_rson:
-                                i= listed[0]
-                                
-                                domain_set= DomainNameValidation.CREATOR(i)
-                                domainname= domain_set['domainname']
-                                fulldomain= domain_set['fulldomain']
-                                sub= domain_set['SUBDOMAIN']
-                                suf= domain_set['SUFFIX']
-                                if domainname not in SCOPED['SCOPED_set_domain']: 
-                                    OOS.add(domain_set['fulldomain'])
-                                    pass
-                                else:
-                                    if OutOfScopeString is None:
-                                        suffixList.add(domain_set['SUFFIX'])
-                                        subdomainList.add(domain_set['SUBDOMAIN'])
-                                        scn.add(domain_set['fulldomain'])
-                                    elif OutOfScopeString not in domain_set['fulldomain']:
-                                        pass
-                                    else:
-                                        suffixList.add(domain_set['SUFFIX'])
-                                        subdomainList.add(domain_set['SUBDOMAIN'])
-                                        scn.add(domain_set['fulldomain'])
-                        else:
-                            print(f'rson fialed {rson}')
-                            return False
-                    tools.SubDater(domainname,subdomainList)
+        MAX_RETRIES = 3  # Number of retries
 
-                    if (scn) or (OOS):
-                        Results = dict.fromkeys(['in_scope'],[y for y in scn])
-                        ResultsOOS=dict.fromkeys(['out_of_scope'],[y for y in OOS])
-                        Results.update(ResultsOOS)
-                        Dic.update(Results)
-                        if Dic is not None:
-                            return(Dic)
+        for attempt in range(MAX_RETRIES):
+                if type(domain_set) is None:
+                    return False
+                else:
+                    if any(scope in domainname for scope in SCOPED['SCOPED_set_domain']):
+                        scn = set()
+                        OOS = set()
+                        Dic = {}
+                        suffixList = set()
+                        subdomainList = set()
+                        Global_Nuclei_CoolDown = (30, 50)
+                        Sleep_Generator = round(random.uniform(Global_Nuclei_CoolDown[0], Global_Nuclei_CoolDown[1]), 2)
+                        time.sleep(Sleep_Generator)
+                        url = (f"https://crt.sh/?q={domainname}&output=json")
+                        print(url)
+                        try:
+                            r = requests.get(url, allow_redirects=True, verify=False, timeout=120)
+                            status = r.status_code
+                            rson = r.json()
+                            time.sleep(2)
+                            if status != 200:
+                                time.sleep(500)
+                                return False
+                            else:
+                                if rson:
+                                    listed_rson = ([x["name_value"].split() for x in rson])
+                                    for listed in listed_rson:
+                                        i = listed[0]
+
+                                        domain_set = DomainNameValidation.CREATOR(i)
+                                        domainname = domain_set['domainname']
+                                        fulldomain = domain_set['fulldomain']
+                                        sub = domain_set['SUBDOMAIN']
+                                        suf = domain_set['SUFFIX']
+                                        if domainname not in SCOPED['SCOPED_set_domain']:
+                                            OOS.add(domain_set['fulldomain'])
+                                            pass
+                                        else:
+                                            if OutOfScopeString is None:
+                                                suffixList.add(domain_set['SUFFIX'])
+                                                subdomainList.add(domain_set['SUBDOMAIN'])
+                                                scn.add(domain_set['fulldomain'])
+                                            elif OutOfScopeString not in domain_set['fulldomain']:
+                                                pass
+                                            else:
+                                                suffixList.add(domain_set['SUFFIX'])
+                                                subdomainList.add(domain_set['SUBDOMAIN'])
+                                                scn.add(domain_set['fulldomain'])
+                                else:
+                                    print(f'rson failed {rson}')
+                                    return False
+                        except Exception as E:
+                            print(f"Attempt {attempt + 1} failed: {E}")
+                            if attempt < MAX_RETRIES - 1:
+                                time.sleep(2)  # Optional: Add a delay before retrying
+                                continue
+                            else:
+                                return False                                
+
+                        tools.SubDater(domainname, subdomainList)
+
+                        if (scn) or (OOS):
+                            Results = dict.fromkeys(['in_scope'], [y for y in scn])
+                            ResultsOOS = dict.fromkeys(['out_of_scope'], [y for y in OOS])
+                            Results.update(ResultsOOS)
+                            Dic.update(Results)
+                            if Dic is not None:
+                                return Dic
+                            else:
+                                return False
                         else:
+                            print(f'failed 358 {scn}')
                             return False
                     else:
-                        print(f'failed 358 {scn}')
-                        return False
-                else:
-                    print('domain name failed csrrt')
-        except Exception as E:
-            print(E)
-            return False
+                        print('domain name failed csrrt')
+
         
     def censysSearch(line, SCOPED, CoolDown, CoolDown_Between_Queries, OutOfScopeString=None, auth_token_json=None, HostAddress=EgoSettings.HostAddress, Port=EgoSettings.Port):
         print('censysSearch SCOPED', SCOPED)

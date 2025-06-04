@@ -1,77 +1,85 @@
-﻿ {% extends 'Template_base.html' %}
+﻿{% extends 'Template_base.html' %}
 {% load bootstrap5 %}
 {% load static %}
 
 {% block title %}
-            <h1>Nuclei ControlBoard</h1>
+<h1>Gnaw ControlBoard</h1>
 {% endblock %}
-
 
 {% block content %}
 
-        <div class="Customer_div">
-            <table class="table">
+<form method="post" enctype="multipart/form-data" action="{% url 'GnawControlBulkImport' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary mt-2">Bulk Import</button>
+</form>
+
+<form method="post" action="{% url 'GnawControlBulkDelete' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger mb-2" onclick="return confirm('Are you sure you want to delete ALL GnawControl items?');">
+        Bulk Delete All
+    </button>
+</form>
+
+<div class="gnaw_form">
+    <form method="post">
+        {% csrf_token %}
+        <label class="form-label">Select Gnaw Control IDs to update:</label>
+        <table class="gnaw_controls">
+            <thead>
                 <tr>
-                    <th class="table_id_customer">Gnaw control Id</th>
-                    <th class="table_Project_Group_Name">Group Name</th>
-                    <th class="table_Project_Name">Project Name</th>
-                    <th class="table_customer_name">Complete</th>
-                    <th class="table_Date_Created">Failed</th>
+                    <th>Select</th>
+                    <th>Group Name</th>
+                    <th>Project Name</th>
+                    <th>Complete</th>
+                    <th>Claimed</th>
+                    <th>Failed</th>
+                    <th>Actions</th>
                 </tr>
+            </thead>
+            <tbody>
                 {% for gn in gnaw %}
                 <tr>
-                    <td class="table_id_customer">
-
-                        <a href="/GnawControlBoard/{{gn.id}}">Gnaw Control here</a>
+                    <td>
+                        <!-- Checkbox for selecting the row -->
+                        <input type="checkbox" name="targets" value="{{ gn.id }}" class="form-check-input">
                     </td>
-                    <td class="table_Project_Group_Name">
-                        {{gn.ScanGroupingProject}}
+                    <td>{{ gn.ScanGroupingProject|default:"-" }}</td>
+                    <td>
+                        <a href="/GnawControlBoard/{{ gn.id }}">
+                            {{ gn.ScanProjectByName|default:"-" }}
+                        </a>
                     </td>
-                    <td class="table_Project_Name">
-                        <div>{{gn.ScanProjectByName}}</div>
+                    <td class="{% if gn.Gnaw_Completed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                        {{ gn.Gnaw_Completed }}
                     </td>
-                    <td class="table_customer_name">
-                        {{gn.Gnaw_Completed}}
+                    <td class="{% if gn.claimed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                        {{ gn.claimed }}
                     </td>
-                    <td class="table_Date_Created">
-                        {{gn.failed}}
+                    <td class="{% if gn.failed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                        {{ gn.failed }}
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'GnawControlBoardDelete' gn.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this item?');">
+                                Delete
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
+            </tbody>
+        </table>
 
-            </table>
-            <table class="Customers_table">
-                <tbody>
-                    <tr>
-                        <th class="table_id_customer">Customer Id</th>
-                        <th class="table_Project_Group_Name">Group Name</th>
-                        <th class="table_Project_Name">Project Name</th>
-                        <th class="table_customer_name">Customer Name</th>
-                        <th class="table_Date_Created">Date Created</th>
-
-                    </tr>
-                    {% for customer in customers %}
-                    <tr>
-                        <td class="table_id_customer">
-                            {{customer.id}}
-                        </td>
-                        <td class="table_Project_Group_Name">
-                            {{customer.groupingProject}}
-                        </td>
-                        <td class="table_Project_Name">
-                            <div>{{customer.nameCustomer}}</div>
-                        </td>
-                        <td class="table_customer_name">
-                            {{customer.nameProject}}
-                        </td>
-                        <td class="table_Date_Created">
-                            {{customer.dateCreated}}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-
+        <!-- Other form fields -->
+        <div class="checkbox-group" style="margin-top: 20px;">
+            <label><input type="checkbox" name="Gnaw_Completed" class="form-check-input"> Completed</label><br>
+            <label><input type="checkbox" name="failed" class="form-check-input"> Failed</label><br>
         </div>
+
+        <!-- Submit button -->
+        <button type="submit" class="btn btn-primary">Update Selected</button>
+    </form>
+</div>
+
 {% endblock %}
